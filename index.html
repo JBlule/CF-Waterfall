@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cash Flow Cascade — Project Finance Waterfall Simulator</title>
+<style>
+  :root {
+    --paper: #F3EFE6;
+    --ink: #1C2B2D;
+    --ink-soft: #55625F;
+    --line: #C9C0AE;
+    --cash: #2E8B9E;
+    --cash-deep: #1C6675;
+    --cash-fill: #7FC4CE;
+    --reserve: #B8863B;
+    --card: #FBF9F3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Georgia", "Times New Roman", serif;
+    line-height: 1.6;
+    padding: 3rem 1.5rem 4rem;
+    display: flex;
+    justify-content: center;
+  }
+  .wrap { width: 100%; max-width: 860px; }
+
+  .eyebrow {
+    font-family: "Courier New", monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--cash-deep);
+    margin-bottom: 1rem;
+  }
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.1rem);
+    line-height: 1.08;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    margin-bottom: 1.25rem;
+  }
+  h1 em { font-style: italic; color: var(--cash-deep); }
+
+  .lede {
+    font-size: 1.12rem;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin-bottom: 1.5rem;
+  }
+
+  .desc {
+    border-top: 1px solid var(--line);
+    padding-top: 1.5rem;
+    margin-bottom: 2.75rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+    max-width: 66ch;
+  }
+  .desc p { font-size: 0.98rem; color: var(--ink-soft); }
+  .desc strong { color: var(--ink); font-weight: 700; }
+
+  .section-label {
+    font-family: "Courier New", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .section-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .cascade {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .tank {
+    width: 100%;
+    max-width: 420px;
+    background: var(--card);
+    border: 1.5px solid var(--ink);
+    border-radius: 10px;
+    padding: 1rem 1.25rem 1.1rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .tank .liquid {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: var(--cash-fill);
+    opacity: 0.32;
+    transition: height 0.6s ease;
+  }
+  .tank.source .liquid { height: 82%; }
+  .tank.opex   .liquid { height: 48%; background: var(--cash-fill); }
+  .tank.debt   .liquid { height: 40%; background: var(--cash-fill); }
+  .tank.reserve .liquid { height: 22%; background: var(--reserve); opacity: 0.28; }
+
+  .tank-row {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+  }
+  .tank-name { font-size: 1.05rem; font-weight: 700; }
+  .tank-tag {
+    font-family: "Courier New", monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .tank-note {
+    position: relative;
+    z-index: 1;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    margin-top: 0.35rem;
+  }
+
+  .pipe {
+    width: 6px;
+    height: 34px;
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--cash) 0 6px,
+      transparent 6px 12px
+    );
+    opacity: 0.55;
+  }
+
+  .controls {
+    margin-top: 2.75rem;
+    border-top: 1px solid var(--line);
+    padding-top: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.85rem;
+  }
+  .run-btn {
+    font-family: "Courier New", monospace;
+    font-size: 0.82rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--card);
+    background: var(--cash-deep);
+    border: none;
+    border-radius: 7px;
+    padding: 0.85rem 1.6rem;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+  }
+  .run-btn:hover { background: var(--cash); }
+  .run-btn:active { transform: scale(0.98); }
+  .run-btn:focus-visible { outline: 3px solid var(--reserve); outline-offset: 2px; }
+  .status {
+    font-family: "Courier New", monospace;
+    font-size: 0.85rem;
+    color: var(--reserve);
+    min-height: 1.2em;
+    letter-spacing: 0.06em;
+  }
+  .status.on::before { content: "▸ "; }
+
+  footer {
+    margin-top: 3rem;
+    font-family: "Courier New", monospace;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    letter-spacing: 0.08em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Project finance · vibe-coding certification</div>
+  <h1>The Cash Flow <em>Cascade</em></h1>
+  <p class="lede">
+    A playable model of how cash moves through a project company — poured in at the
+    top as revenue, then falling compartment by compartment through a strict order of
+    priority, the way a real waterfall of payments works.
+  </p>
+
+  <div class="desc">
+    <p>
+      Inspired by the <strong>MONIAC</strong> hydraulic economics machine, this simulator
+      turns an abstract financial waterfall into something you can watch flow. Revenue
+      enters at the top; cash then cascades through operating costs, debt service, reserve
+      accounts and distributions — each compartment filling only when the ones above it are
+      satisfied.
+    </p>
+    <p>
+      <strong>Covenants and reserve accounts</strong> steer the flow: when a coverage ratio
+      falls below its threshold, cash is trapped and redirected instead of distributed. The
+      goal is to keep the structure solvent period after period — a game built on the real
+      mechanics of project finance.
+    </p>
+    <p>
+      Everything runs deterministically in the browser. No AI at runtime, no backend — just
+      the same priority-of-payments logic a financial model would compute, made visible.
+    </p>
+  </div>
+
+  <div class="section-label">Cascade preview</div>
+
+  <div class="cascade">
+    <div class="tank source">
+      <div class="liquid"></div>
+      <div class="tank-row">
+        <span class="tank-name">Revenue</span>
+        <span class="tank-tag">inflow</span>
+      </div>
+      <div class="tank-note">Cash enters the structure here.</div>
+    </div>
+
+    <div class="pipe"></div>
+
+    <div class="tank opex">
+      <div class="liquid"></div>
+      <div class="tank-row">
+        <span class="tank-name">Operating costs</span>
+        <span class="tank-tag">priority 1</span>
+      </div>
+      <div class="tank-note">OPEX is served before anything else.</div>
+    </div>
+
+    <div class="pipe"></div>
+
+    <div class="tank debt">
+      <div class="liquid"></div>
+      <div class="tank-row">
+        <span class="tank-name">Debt service</span>
+        <span class="tank-tag">priority 2</span>
+      </div>
+      <div class="tank-note">Interest and principal on the senior debt.</div>
+    </div>
+
+    <div class="pipe"></div>
+
+    <div class="tank reserve">
+      <div class="liquid"></div>
+      <div class="tank-row">
+        <span class="tank-name">Reserve account</span>
+        <span class="tank-tag">DSRA · target</span>
+      </div>
+      <div class="tank-note">Filled to its target before cash flows downstream.</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="run-btn" id="runBtn">Run the cascade</button>
+    <div class="status" id="status" aria-live="polite"></div>
+  </div>
+
+  <footer>Work in progress — v0.1</footer>
+
+</div>
+
+<script>
+  var btn = document.getElementById('runBtn');
+  var status = document.getElementById('status');
+  btn.addEventListener('click', function () {
+    status.textContent = 'In progress — cascade engine under construction';
+    status.classList.add('on');
+  });
+</script>
+</body>
+</html>
