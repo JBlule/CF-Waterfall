@@ -188,6 +188,63 @@
     letter-spacing: 0.08em;
   }
 
+  /* Under-construction modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 43, 45, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    z-index: 50;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    max-width: 440px;
+    width: 100%;
+    padding: 2rem 2rem 1.75rem;
+    box-shadow: 0 18px 50px rgba(28, 43, 45, 0.28);
+    position: relative;
+  }
+  .modal .badge {
+    font-family: "Courier New", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--reserve);
+    margin-bottom: 0.9rem;
+  }
+  .modal h2 {
+    font-size: 1.55rem;
+    font-weight: 400;
+    line-height: 1.15;
+    margin-bottom: 0.85rem;
+  }
+  .modal p {
+    font-size: 0.98rem;
+    color: var(--ink-soft);
+    margin-bottom: 1.5rem;
+  }
+  .modal-close {
+    font-family: "Courier New", monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--card);
+    background: var(--cash-deep);
+    border: none;
+    border-radius: 7px;
+    padding: 0.7rem 1.4rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  .modal-close:hover { background: var(--cash); }
+  .modal-close:focus-visible { outline: 3px solid var(--reserve); outline-offset: 2px; }
+
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
   }
@@ -199,28 +256,25 @@
   <div class="eyebrow">Project finance · vibe-coding certification</div>
   <h1>The Cash Flow <em>Cascade</em></h1>
   <p class="lede">
-    A playable model of how cash moves through a project company — poured in at the
-    top as revenue, then falling compartment by compartment through a strict order of
-    priority, the way a real waterfall of payments works.
+    A <em>simplified</em> cash-flow cascade you can watch run — cash is poured in at the
+    top and falls, compartment by compartment, through a strict order of priority.
   </p>
 
   <div class="desc">
     <p>
       Inspired by the <strong>MONIAC</strong> hydraulic economics machine, this simulator
-      turns an abstract financial waterfall into something you can watch flow. Revenue
-      enters at the top; cash then cascades through operating costs, debt service, reserve
-      accounts and distributions — each compartment filling only when the ones above it are
-      satisfied.
+      turns an abstract cash-flow waterfall into something you can watch flow. Cash enters
+      at the top and cascades through operating costs, debt service, reserve accounts and
+      distributions — each compartment filling only when the ones above it have been served.
     </p>
     <p>
-      <strong>Covenants and reserve accounts</strong> steer the flow: when a coverage ratio
-      falls below its threshold, cash is trapped and redirected instead of distributed. The
-      goal is to keep the structure solvent period after period — a game built on the real
-      mechanics of project finance.
+      This is a <strong>teaching tool, built purely for educational purposes</strong>. Its
+      aim is to make financial mechanisms such as <strong>covenants</strong> concrete and
+      easy to see: when a coverage ratio falls below its threshold, cash is trapped and
+      redirected instead of distributed, and you can watch that rule take effect step by step.
     </p>
     <p>
-      Everything runs deterministically in the browser. No AI at runtime, no backend — just
-      the same priority-of-payments logic a financial model would compute, made visible.
+      Everything is deterministic: the same inputs always produce the same cascade.
     </p>
   </div>
 
@@ -279,12 +333,39 @@
 
 </div>
 
+<div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="badge">Under construction</div>
+    <h2 id="modalTitle">This feature is still in progress</h2>
+    <p>
+      The cascade engine is currently being built. Thank you for your patience —
+      please check back soon to run the simulation.
+    </p>
+    <button class="modal-close" id="modalClose">Got it</button>
+  </div>
+</div>
+
 <script>
   var btn = document.getElementById('runBtn');
-  var status = document.getElementById('status');
-  btn.addEventListener('click', function () {
-    status.textContent = 'In progress — cascade engine under construction';
-    status.classList.add('on');
+  var overlay = document.getElementById('modalOverlay');
+  var closeBtn = document.getElementById('modalClose');
+
+  function openModal() {
+    overlay.classList.add('open');
+    closeBtn.focus();
+  }
+  function closeModal() {
+    overlay.classList.remove('open');
+    btn.focus();
+  }
+
+  btn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) { closeModal(); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && overlay.classList.contains('open')) { closeModal(); }
   });
 </script>
 </body>
