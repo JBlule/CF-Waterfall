@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cash Flow Waterfall — Definitions</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="brand">
+    <div class="eyebrow">Project finance</div>
+    <div class="brand-name">Cash Flow<br><em>Waterfall</em></div>
+  </div>
+  <nav class="nav">
+    <a href="index.html">Simulation</a>
+    <a href="definitions.html" class="active">Definitions</a>
+    <a href="hypotheses.html">Assumptions</a>
+  </nav>
+  <div class="sidebar-foot">MONIAC-style teaching tool · v0.1</div>
+</aside>
+
+<main class="main">
+  <div class="page">
+
+    <div class="eyebrow">Definitions</div>
+    <h1>The concepts this tool <em>makes visible</em></h1>
+    <p class="lede">
+      A short glossary of the project-finance mechanisms the cascade is built to explain.
+      Everything below maps directly to a compartment or a rule you can watch on the
+      simulation page.
+    </p>
+
+    <div class="prose">
+
+      <div class="term">
+        <h3>Cash-flow waterfall<span class="abbr">priority of payments</span></h3>
+        <p>
+          The fixed order in which a project's cash is allocated each period. Cash enters
+          at the top and can only reach a lower compartment once every compartment above it
+          has been served in full. This ordering is the heart of the model.
+        </p>
+      </div>
+
+      <div class="term">
+        <h3>CFADS<span class="abbr">cash flow available for debt service</span></h3>
+        <p>
+          Operating revenue minus operating costs (and any prior claims). It is the cash the
+          project actually has available to pay lenders, and the base on which debt service
+          is sculpted.
+        </p>
+      </div>
+
+      <div class="term">
+        <h3>Debt sculpting<span class="abbr">DSCR-driven</span></h3>
+        <p>
+          Rather than a flat repayment profile, scheduled debt service is shaped period by
+          period so that the <strong>debt service cover ratio</strong> (CFADS ÷ debt service)
+          tracks a target. Repayments are larger when cash is abundant and smaller when it is
+          scarce.
+        </p>
+      </div>
+
+      <div class="term">
+        <h3>Debt service reserve account<span class="abbr">DSRA</span></h3>
+        <p>
+          A reserve funded up to a target — typically a number of months of upcoming debt
+          service. It is filled before cash is allowed to flow downstream, so lenders keep a
+          buffer even if a period underperforms.
+        </p>
+      </div>
+
+      <div class="term">
+        <h3>Maintenance reserve account<span class="abbr">MRA</span></h3>
+        <p>
+          A reserve set aside for future major maintenance. Like the DSRA, it must be funded
+          to its target before distributions can be made.
+        </p>
+      </div>
+
+      <div class="term">
+        <h3>Distribution lock-up test<span class="abbr">covenant</span></h3>
+        <p>
+          A check performed before paying shareholders. If a ratio — for example the DSCR —
+          falls below its threshold, the test fails: distributions are <strong>locked up</strong>
+          and the cash is trapped in the structure (held in reserves or used to pay down debt)
+          instead of leaving it.
+        </p>
+      </div>
+
+      <div class="term">
+        <h3>Distributions<span class="abbr">residual</span></h3>
+        <p>
+          The cash that reaches shareholders, but only after operating costs, debt service,
+          taxes and reserve funding have all been satisfied and the lock-up test has passed.
+        </p>
+      </div>
+
+      <div class="term">
+        <h3>Cash brought / carried forward<span class="abbr">period link</span></h3>
+        <p>
+          Whatever cash remains at the end of a period is <strong>carried forward</strong> and
+          becomes the <strong>brought-forward</strong> balance at the start of the next one —
+          the way we move from one column of the model to the next.
+        </p>
+      </div>
+
+    </div>
+
+    <footer class="page-foot">Teaching tool · concepts only · v0.1</footer>
+
+  </div>
+</main>
+
+</body>
+</html>

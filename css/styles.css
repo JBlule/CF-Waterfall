@@ -1,0 +1,390 @@
+/* ==========================================================================
+   CF-Waterfall — shared styles
+   Layer: rendering only. No business logic lives here.
+   Used by every page (index.html, definitions.html, hypotheses.html).
+   ========================================================================== */
+
+:root {
+  --paper: #F3EFE6;
+  --ink: #1C2B2D;
+  --ink-soft: #55625F;
+  --line: #C9C0AE;
+  --cash: #2E8B9E;
+  --cash-deep: #1C6675;
+  --cash-fill: #7FC4CE;
+  --reserve: #B8863B;
+  --reserve-fill: #E4C98A;
+  --trap: #A65A4B;
+  --card: #FBF9F3;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Georgia", "Times New Roman", serif;
+  line-height: 1.6;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 244px 1fr;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar navigation (pure HTML/CSS layout — no JS framework)
+   -------------------------------------------------------------------------- */
+.sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  border-right: 1px solid var(--line);
+  background: var(--card);
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.brand .eyebrow {
+  font-family: "Courier New", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cash-deep);
+  margin-bottom: 0.5rem;
+}
+.brand .brand-name {
+  font-size: 1.35rem;
+  line-height: 1.15;
+  font-weight: 400;
+}
+.brand .brand-name em { font-style: italic; color: var(--cash-deep); }
+
+.nav { display: flex; flex-direction: column; gap: 0.25rem; }
+.nav a {
+  font-size: 0.98rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  border-left: 3px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav a:hover { background: var(--paper); color: var(--ink); }
+.nav a.active {
+  color: var(--ink);
+  background: var(--paper);
+  border-left-color: var(--cash-deep);
+  font-weight: 700;
+}
+
+.sidebar-foot {
+  margin-top: auto;
+  font-family: "Courier New", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+/* --------------------------------------------------------------------------
+   Main content column
+   -------------------------------------------------------------------------- */
+.main { padding: 3rem 2.5rem 4rem; }
+.page { width: 100%; max-width: 880px; }
+
+.eyebrow {
+  font-family: "Courier New", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cash-deep);
+  margin-bottom: 1rem;
+}
+h1 {
+  font-size: clamp(1.9rem, 4vw, 2.7rem);
+  line-height: 1.08;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  margin-bottom: 1rem;
+}
+h1 em { font-style: italic; color: var(--cash-deep); }
+
+.lede {
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+  max-width: 64ch;
+  margin-bottom: 2.5rem;
+}
+
+.section-label {
+  font-family: "Courier New", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 2.5rem 0 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.section-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* --------------------------------------------------------------------------
+   Region 1 — assumptions input panel (forms + sliders)
+   -------------------------------------------------------------------------- */
+.inputs {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  padding: 1.5rem 1.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem 2rem;
+}
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
+.field label {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.field .hint {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+.field .control-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.field input[type="range"] { flex: 1; accent-color: var(--cash-deep); }
+.field output {
+  font-family: "Courier New", monospace;
+  font-size: 0.9rem;
+  color: var(--cash-deep);
+  min-width: 5.5ch;
+  text-align: right;
+}
+
+/* --------------------------------------------------------------------------
+   Region 2 — cascade (SVG topology)
+   -------------------------------------------------------------------------- */
+.cascade-frame {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  padding: 1rem;
+  overflow-x: auto;
+}
+.cascade-frame svg { display: block; width: 100%; height: auto; }
+
+.tank-box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; }
+.tank-liquid-cash { fill: var(--cash-fill); opacity: 0.34; }
+.tank-liquid-reserve { fill: var(--reserve-fill); opacity: 0.4; }
+.tank-liquid-trap { fill: var(--trap); opacity: 0.22; }
+.tank-title { font-family: "Georgia", serif; font-size: 15px; font-weight: 700; fill: var(--ink); }
+.tank-tag {
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  fill: var(--ink-soft);
+  text-transform: uppercase;
+}
+.pipe { fill: var(--cash); opacity: 0.5; }
+.pipe-reserve { fill: var(--reserve); opacity: 0.5; }
+.cascade-note {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-top: 0.9rem;
+}
+
+/* --------------------------------------------------------------------------
+   Region 3 — control bar
+   -------------------------------------------------------------------------- */
+.controls {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.period-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: auto;
+}
+.period-nav .period-label {
+  font-family: "Courier New", monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+.btn {
+  font-family: "Courier New", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--card);
+  background: var(--cash-deep);
+  border: none;
+  border-radius: 7px;
+  padding: 0.75rem 1.4rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+.btn:hover { background: var(--cash); }
+.btn:active { transform: scale(0.98); }
+.btn:focus-visible { outline: 3px solid var(--reserve); outline-offset: 2px; }
+.btn.secondary {
+  color: var(--ink);
+  background: transparent;
+  border: 1.5px solid var(--ink);
+}
+.btn.secondary:hover { background: var(--paper); }
+.btn.tiny { padding: 0.5rem 0.8rem; }
+
+.status {
+  width: 100%;
+  margin-top: 0.5rem;
+  font-family: "Courier New", monospace;
+  font-size: 0.85rem;
+  color: var(--reserve);
+  min-height: 1.2em;
+  letter-spacing: 0.06em;
+}
+.status.on::before { content: "\25B8  "; }
+
+/* --------------------------------------------------------------------------
+   Prose (definitions / assumptions pages)
+   -------------------------------------------------------------------------- */
+.prose { max-width: 68ch; }
+.prose p { color: var(--ink-soft); margin-bottom: 1rem; }
+.prose strong { color: var(--ink); }
+
+.term {
+  border-top: 1px solid var(--line);
+  padding-top: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.term h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+.term .abbr {
+  font-family: "Courier New", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cash-deep);
+  margin-left: 0.5rem;
+}
+.term p { color: var(--ink-soft); }
+
+.callout {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--reserve);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0;
+}
+.callout h3 { font-size: 1.05rem; margin-bottom: 0.5rem; }
+
+.assume-list { list-style: none; display: flex; flex-direction: column; gap: 1rem; }
+.assume-list li {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 1rem 1.25rem;
+}
+.assume-list li strong { display: block; margin-bottom: 0.25rem; }
+.assume-list li span { color: var(--ink-soft); font-size: 0.95rem; }
+
+footer.page-foot {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  font-family: "Courier New", monospace;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  letter-spacing: 0.08em;
+}
+
+/* --------------------------------------------------------------------------
+   Modal
+   -------------------------------------------------------------------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 43, 45, 0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 50;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--card);
+  border: 1.5px solid var(--ink);
+  border-radius: 12px;
+  max-width: 440px;
+  width: 100%;
+  padding: 2rem;
+  box-shadow: 0 18px 50px rgba(28, 43, 45, 0.28);
+}
+.modal .badge {
+  font-family: "Courier New", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--reserve);
+  margin-bottom: 0.9rem;
+}
+.modal h2 { font-size: 1.45rem; font-weight: 400; line-height: 1.15; margin-bottom: 0.85rem; }
+.modal p { font-size: 0.98rem; color: var(--ink-soft); margin-bottom: 1.5rem; }
+.modal-close {
+  font-family: "Courier New", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--card);
+  background: var(--cash-deep);
+  border: none;
+  border-radius: 7px;
+  padding: 0.7rem 1.4rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.modal-close:hover { background: var(--cash); }
+.modal-close:focus-visible { outline: 3px solid var(--reserve); outline-offset: 2px; }
+
+/* --------------------------------------------------------------------------
+   Responsive — collapse the sidebar to the top on narrow screens
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  body { grid-template-columns: 1fr; }
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.5rem;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .nav { flex-direction: row; flex-wrap: wrap; }
+  .sidebar-foot { display: none; }
+  .main { padding: 2rem 1.25rem 3rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
