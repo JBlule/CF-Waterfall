@@ -1,0 +1,20 @@
+# The reference financial model is a personal working file and is
+# deliberately NOT published:
+# the engine is proven against oracle_scenarios.json, not against the
+# workbook, so the repository does not need it.
+projet_vibe-coding.xlsx
+*.xlsx
+*.xlsm
+
+# Internal working brief, not part of the deliverable
+CLAUDE_CODE_BRIEF.md
+
+# Local tooling / editor / OS noise
+.claude/
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+Thumbs.db
+desktop.ini
+.DS_Store

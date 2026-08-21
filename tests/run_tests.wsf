@@ -1,0 +1,45 @@
+<job id="waterfall-tests">
+  <!-- CLI test runner:  cscript //nologo tests\run_tests.wsf
+       Uses <script src> includes so no file I/O or JSON parser is needed,
+       neither of which cscript's JScript provides. -->
+  <script language="JScript" src="../src/engine.js"/>
+  <script language="JScript" src="harness.js"/>
+  <script language="JScript" src="../data/graph_data.js"/>
+  <script language="JScript" src="oracle_data.js"/>
+  <script language="JScript" src="test_units.js"/>
+  <script language="JScript" src="test_oracle.js"/>
+  <script language="JScript" src="test_graph.js"/>
+  <script language="JScript">
+    T.emit(T.rep("=", 72));
+    T.emit("CASH-FLOW WATERFALL ENGINE -- TEST RUN");
+    T.emit(T.rep("=", 72));
+
+    runUnitTests();
+    var unit = T.counts();
+
+    var oracle = runOracleTests();
+    var graph = runGraphTests();
+    var cov = reportCoverage();
+
+    var all = T.summary("TOTAL");
+
+    T.emit("");
+    T.emit(T.rep("=", 72));
+    T.emit("VERDICT");
+    T.emit(T.rep("=", 72));
+    T.emit("  assertions      : " + all.pass + " passed / " + all.fail + " failed");
+    T.emit("  oracle scenarios: " + oracle.passCount + " / " + oracle.total +
+           " reproduced (" + oracle.cells + " cells compared)");
+    T.emit("  worst divergence: " + T.fmt(oracle.worst) + " (tolerance 0.01)");
+    T.emit("  branch coverage : " + cov.covered + " / " + cov.total);
+    T.emit("");
+
+    if (all.fail > 0) {
+      T.emit("RESULT: FAILING");
+      WScript.Quit(1);
+    } else {
+      T.emit("RESULT: GREEN");
+      WScript.Quit(0);
+    }
+  </script>
+</job>

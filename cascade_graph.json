@@ -1,0 +1,729 @@
+{
+ "meta": {
+  "source": "projet_vibe-coding.xlsx / Cascade tab",
+  "note": "Directed cash-flow graph. Reservoirs (MRA,DSRA,Treasury) persist across periods; other nodes are within-period stages. DEBT is a compound node with 3 ordered sub-compartments (deferred->interest->principal). Edge types: cash (main flow), draw (reservoir pays a shortfall), fund (cash tops up a reservoir), release (reservoir surplus to equity), carry (inter-period), test (lock-up gate), priority (ordering inside the debt node).",
+  "inter_period": [
+   "TREAS_EOP(N)->TREAS_BOP(N+1)",
+   "MRA/DSRA/Treasury BoP(N)=EoP(N-1)",
+   "DSRA target(N) uses SCHEDULED debt service(N+1) (treasury-free, keeps graph acyclic within a period)"
+  ],
+  "evaluation_order": [
+   "TREAS_BOP",
+   "CURCASH(Toll-OPEX+TreasBoP)",
+   "HM_PAY(cash then MRA)",
+   "CASH_AHM",
+   "DEBT(deferred->interest[+DSRA draw]->principal)",
+   "CASH_RES",
+   "MRA_RECH",
+   "DSRA_RECH",
+   "releases",
+   "CASH_EQ",
+   "LOCKUP",
+   "DISTRIB",
+   "TREAS_EOP"
+  ]
+ },
+ "nodes": [
+  {
+   "id": "TOLL",
+   "label": "Toll Revenues",
+   "kind": "source",
+   "rows": "Feuil1!27",
+   "doc": "Revenue inflow (Toll_km * traffic, indexed by CPI).",
+   "params": [
+    "Traffic_Base",
+    "Tariff_km",
+    "CPI"
+   ]
+  },
+  {
+   "id": "OPEX",
+   "label": "OPEX",
+   "kind": "source",
+   "rows": "Feuil1!39",
+   "doc": "Operating costs, paid before debt (priority via CFADS).",
+   "params": [
+    "OPEX_Base",
+    "CPI"
+   ]
+  },
+  {
+   "id": "HM",
+   "label": "Heavy Maintenance (due)",
+   "kind": "source",
+   "rows": "Feuil1!58",
+   "doc": "Heavy maintenance expense due this period.",
+   "params": [
+    "HM_Base",
+    "HM_Peak_Cycle",
+    "HM_Peak_Amount",
+    "CPI"
+   ]
+  },
+  {
+   "id": "TREAS_BOP",
+   "label": "Treasury BoP (brought forward)",
+   "kind": "reservoir",
+   "rows": "Feuil1!140",
+   "doc": "Cash carried from the previous period.",
+   "params": []
+  },
+  {
+   "id": "CURCASH",
+   "label": "Current cash",
+   "kind": "compute",
+   "rows": "Feuil1!115",
+   "doc": "Toll - OPEX + Treasury brought forward.",
+   "params": []
+  },
+  {
+   "id": "HM_PAY",
+   "label": "HM payment",
+   "kind": "compute",
+   "rows": "Feuil1!116,117",
+   "doc": "HM paid: current cash first, MRA for the shortfall.",
+   "params": []
+  },
+  {
+   "id": "CASH_AHM",
+   "label": "Cash after HM",
+   "kind": "compute",
+   "rows": "Feuil1!118",
+   "doc": "Cash remaining after HM is paid.",
+   "params": []
+  },
+  {
+   "id": "MRA",
+   "label": "MRA (reservoir)",
+   "kind": "reservoir",
+   "rows": "Feuil1!96-101",
+   "doc": "Maintenance Reserve Account. Funds/holds against future HM; drawn to pay HM when cash is short.",
+   "params": [
+    "MRA_Coef_N",
+    "MRA_Coef_N1",
+    "MRA_Coef_N2"
+   ]
+  },
+  {
+   "id": "DEBT",
+   "label": "Debt service",
+   "kind": "compound",
+   "rows": "Feuil1!79-91",
+   "doc": "Senior debt service. Internally: deferred interest -> interest -> principal.",
+   "params": [
+    "Debt_Nominal",
+    "Interest_Rate",
+    "Debt_Duration",
+    "Sizing_Mode",
+    "DSCR"
+   ]
+  },
+  {
+   "id": "DEBT_DEF",
+   "label": "Deferred interest",
+   "kind": "subcompartment",
+   "rows": "Feuil1!81,84,89",
+   "doc": "Arrears of unpaid interest (non-capitalising). PRIORITY 1 within debt.",
+   "params": [
+    "Interest_Rate"
+   ]
+  },
+  {
+   "id": "DEBT_INT",
+   "label": "Interest",
+   "kind": "subcompartment",
+   "rows": "Feuil1!80,85",
+   "doc": "Current-period interest. PRIORITY 2 within debt.",
+   "params": [
+    "Interest_Rate"
+   ]
+  },
+  {
+   "id": "DEBT_PRIN",
+   "label": "Principal",
+   "kind": "subcompartment",
+   "rows": "Feuil1!86,87",
+   "doc": "Principal repayment, sculpted to DSCR. PRIORITY 3 within debt.",
+   "params": [
+    "DSCR",
+    "Debt_Duration"
+   ]
+  },
+  {
+   "id": "DSRA",
+   "label": "DSRA (reservoir)",
+   "kind": "reservoir",
+   "rows": "Feuil1!105-110",
+   "doc": "Debt Service Reserve Account. Drawn to top up interest/deferred when cash is short.",
+   "params": [
+    "Interest_Rate",
+    "DSCR"
+   ]
+  },
+  {
+   "id": "CASH_RES",
+   "label": "Cash available for reserve accounts",
+   "kind": "compute",
+   "rows": "Feuil1!120",
+   "doc": "Cash left after debt service; funds reserve recharges.",
+   "params": []
+  },
+  {
+   "id": "MRA_RECH",
+   "label": "MRA recharge",
+   "kind": "compute",
+   "rows": "Feuil1!99",
+   "doc": "Contribution to bring MRA toward its target.",
+   "params": []
+  },
+  {
+   "id": "DSRA_RECH",
+   "label": "DSRA recharge",
+   "kind": "compute",
+   "rows": "Feuil1!107",
+   "doc": "Contribution to bring DSRA toward its target.",
+   "params": []
+  },
+  {
+   "id": "CASH_EQ",
+   "label": "Cash available to Equity (pre-test)",
+   "kind": "compute",
+   "rows": "Feuil1!122",
+   "doc": "Residual cash plus reserve surplus releases, before lock-up.",
+   "params": []
+  },
+  {
+   "id": "LOCKUP",
+   "label": "Lock-up tests",
+   "kind": "test",
+   "rows": "Feuil1!124-128",
+   "doc": "Gate: DSCR>=min AND LLCR>=min AND MRA filled AND DSRA filled.",
+   "params": [
+    "DSCR_Min",
+    "LLCR_Min"
+   ]
+  },
+  {
+   "id": "DISTRIB",
+   "label": "Distribution to Equity",
+   "kind": "sink",
+   "rows": "Feuil1!130",
+   "doc": "Cash paid to shareholders (only if lock-up passes, capped).",
+   "params": [
+    "DSCR_Distrib"
+   ]
+  },
+  {
+   "id": "TREAS_EOP",
+   "label": "Treasury EoP (carried forward)",
+   "kind": "reservoir",
+   "rows": "Feuil1!142",
+   "doc": "Undistributed cash; becomes next period Treasury BoP.",
+   "params": []
+  }
+ ],
+ "edges": [
+  {
+   "from": "TOLL",
+   "to": "CURCASH",
+   "flow": "+Toll",
+   "type": "cash"
+  },
+  {
+   "from": "OPEX",
+   "to": "CURCASH",
+   "flow": "-OPEX",
+   "type": "cash"
+  },
+  {
+   "from": "TREAS_BOP",
+   "to": "CURCASH",
+   "flow": "+brought forward",
+   "type": "carry"
+  },
+  {
+   "from": "CURCASH",
+   "to": "HM_PAY",
+   "flow": "pay HM (priority over debt)",
+   "type": "cash"
+  },
+  {
+   "from": "HM",
+   "to": "HM_PAY",
+   "flow": "HM due",
+   "type": "cash"
+  },
+  {
+   "from": "MRA",
+   "to": "HM_PAY",
+   "flow": "draw for HM shortfall",
+   "type": "draw"
+  },
+  {
+   "from": "HM_PAY",
+   "to": "CASH_AHM",
+   "flow": "net of HM from cash",
+   "type": "cash"
+  },
+  {
+   "from": "CURCASH",
+   "to": "CASH_AHM",
+   "flow": "remaining",
+   "type": "cash"
+  },
+  {
+   "from": "CASH_AHM",
+   "to": "DEBT",
+   "flow": "pay debt service",
+   "type": "cash"
+  },
+  {
+   "from": "DSRA",
+   "to": "DEBT",
+   "flow": "draw to top up interest/deferred",
+   "type": "draw"
+  },
+  {
+   "from": "DEBT_DEF",
+   "to": "DEBT_INT",
+   "flow": "after deferred paid",
+   "type": "priority"
+  },
+  {
+   "from": "DEBT_INT",
+   "to": "DEBT_PRIN",
+   "flow": "after interest paid",
+   "type": "priority"
+  },
+  {
+   "from": "DEBT",
+   "to": "CASH_RES",
+   "flow": "residual after debt",
+   "type": "cash"
+  },
+  {
+   "from": "CASH_RES",
+   "to": "MRA_RECH",
+   "flow": "fund MRA to target",
+   "type": "fund"
+  },
+  {
+   "from": "MRA_RECH",
+   "to": "MRA",
+   "flow": "contribution",
+   "type": "fund"
+  },
+  {
+   "from": "CASH_RES",
+   "to": "DSRA_RECH",
+   "flow": "fund DSRA to target",
+   "type": "fund"
+  },
+  {
+   "from": "DSRA_RECH",
+   "to": "DSRA",
+   "flow": "contribution",
+   "type": "fund"
+  },
+  {
+   "from": "MRA",
+   "to": "CASH_EQ",
+   "flow": "release surplus above target",
+   "type": "release"
+  },
+  {
+   "from": "DSRA",
+   "to": "CASH_EQ",
+   "flow": "release surplus above target",
+   "type": "release"
+  },
+  {
+   "from": "CASH_RES",
+   "to": "CASH_EQ",
+   "flow": "residual after recharges",
+   "type": "cash"
+  },
+  {
+   "from": "CASH_EQ",
+   "to": "LOCKUP",
+   "flow": "apply lock-up tests",
+   "type": "test"
+  },
+  {
+   "from": "LOCKUP",
+   "to": "DISTRIB",
+   "flow": "if all tests pass",
+   "type": "test"
+  },
+  {
+   "from": "CASH_EQ",
+   "to": "DISTRIB",
+   "flow": "distributable (capped)",
+   "type": "cash"
+  },
+  {
+   "from": "CASH_EQ",
+   "to": "TREAS_EOP",
+   "flow": "undistributed -> treasury",
+   "type": "cash"
+  },
+  {
+   "from": "DISTRIB",
+   "to": "TREAS_EOP",
+   "flow": "after distribution",
+   "type": "cash"
+  },
+  {
+   "from": "TREAS_EOP",
+   "to": "TREAS_BOP",
+   "flow": "carried to next period (N+1)",
+   "type": "carry"
+  }
+ ],
+ "adjacency": {
+  "order": [
+   "TOLL",
+   "OPEX",
+   "HM",
+   "TREAS_BOP",
+   "CURCASH",
+   "HM_PAY",
+   "CASH_AHM",
+   "MRA",
+   "DEBT",
+   "DSRA",
+   "CASH_RES",
+   "MRA_RECH",
+   "DSRA_RECH",
+   "CASH_EQ",
+   "LOCKUP",
+   "DISTRIB",
+   "TREAS_EOP"
+  ],
+  "matrix": [
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1
+   ],
+   [
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  ]
+ }
+}

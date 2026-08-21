@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cash-flow waterfall — a hydraulic model of a project-finance SPV</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="masthead">
+    <h1>Cash-flow waterfall</h1>
+    <span class="tagline">cash is water &mdash; watch it fall through the
+      structure, one period at a time</span>
+    <nav>
+      <a class="btn" href="glossary.html">Glossary</a>
+    </nav>
+  </header>
+
+  <section class="intro">
+    <p>
+      <b>What this is.</b> A simulation of how cash circulates through a
+      <b>motorway project company</b> — a special-purpose vehicle that borrows
+      to build a road, then collects tolls and pays everyone back in a fixed
+      order of priority. Cash is water: it is poured in at the top of the
+      cascade and every claim on it is met, or not, as it falls. Whatever
+      reaches the bottom belongs to the shareholders.
+    </p>
+    <p>
+      The plumbing is drawn in the manner of the
+      <a href="https://en.wikipedia.org/wiki/Phillips_Machine"
+         target="_blank" rel="noopener noreferrer">MONIAC</a> — the
+      Phillips Machine, a hydraulic computer built in 1949 that modelled a
+      national economy as water flowing between perspex tanks. Press
+      <b>Run the cascade</b> to watch the years go by, or <b>Step</b> to walk
+      through a single year one stage at a time. Click any tank or any pipe to
+      find out what it is.
+    </p>
+  </section>
+
+  <aside class="sidebar">
+    <p class="panel-title">Assumptions</p>
+    <div id="sliders"></div>
+  </aside>
+
+  <main class="stage">
+    <div id="anomaly" class="anomaly-bar"></div>
+
+    <div class="controls">
+      <button class="btn is-primary" id="btnRun" title="Play the periods in sequence">
+        &#9654; Run the cascade</button>
+      <button class="btn" id="btnStep" title="Advance one waterfall stage">
+        Step &#8677;</button>
+      <button class="btn" id="btnReset" title="Back to period 1">Reset</button>
+
+      <span class="ctl-sep"></span>
+
+      <button class="btn" id="btnFirst" title="First period">&#124;&#9664;</button>
+      <button class="btn" id="btnPrev" title="Previous period">&#9664;</button>
+      <span class="period-readout" id="periodReadout">Period 1</span>
+      <button class="btn" id="btnNext" title="Next period">&#9654;</button>
+      <button class="btn" id="btnLast" title="Last period">&#9654;&#124;</button>
+      <input type="range" id="scrub" min="0" max="30" step="1" value="0"
+             style="flex:1 1 140px; max-width:260px" aria-label="Period">
+
+      <label class="speed">speed
+        <select id="speed">
+          <option value="1600">Slow</option>
+          <option value="900" selected>Normal</option>
+          <option value="420">Fast</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="stagebar is-hidden" id="stagebar"></div>
+    <p class="narration" id="narration"></p>
+
+    <dl class="figures" id="figures"></dl>
+
+    <div class="canvas-wrap" id="canvas"></div>
+  </main>
+
+  <aside class="inspector">
+    <p class="panel-title">What am I looking at?</p>
+    <div id="inspector"></div>
+  </aside>
+
+</div>
+
+<!-- engine first: pure, proven, no DOM -->
+<script src="src/engine.js"></script>
+<!-- the graph, wrapped as a JS global so the app runs from file:// too -->
+<script src="data/graph_data.js"></script>
+<!-- UI -->
+<script src="js/labels.js"></script>
+<script src="js/glossary.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/render.js"></script>
+<script src="js/params.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

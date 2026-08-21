@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glossary — Cash-flow waterfall</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body class="doc-page">
+<div class="app app--doc">
+
+  <header class="masthead">
+    <h1>Glossary</h1>
+    <span class="tagline">the mechanisms behind the tanks and pipes</span>
+    <nav>
+      <a class="btn is-primary" href="index.html">&#9664; Back to the cascade</a>
+    </nav>
+  </header>
+
+  <aside class="sidebar">
+    <p class="panel-title">Contents</p>
+    <nav class="toc" id="toc"></nav>
+
+    <p class="panel-title" style="margin-top:1.6rem">Reading the pipes</p>
+    <div id="legend"></div>
+  </aside>
+
+  <main class="doc" id="doc">
+    <p class="doc-lede">
+      Every compartment and every pipe in the cascade has an entry here. Each
+      one says what the mechanism is in plain language, how it works in
+      <em>this</em> model, and why it sits where it does in the order of
+      priority.
+    </p>
+  </main>
+
+</div>
+
+<script src="src/engine.js"></script>
+<script src="data/graph_data.js"></script>
+<script src="js/labels.js"></script>
+<script src="js/params.js"></script>
+<script src="js/glossary.js"></script>
+<script>
+(function () {
+  const doc = document.getElementById("doc");
+  const toc = document.getElementById("toc");
+
+  /* Which cascade compartments each entry covers, derived by inverting the
+   * node map rather than maintained by hand. */
+  const nodesFor = {};
+  for (const nodeId in GLOSSARY_FOR_NODE) {
+    const g = GLOSSARY_FOR_NODE[nodeId];
+    (nodesFor[g] = nodesFor[g] || []).push(nodeId);
+  }
+  const nodeLabel = (id) => displayLabelById(id, CASCADE_GRAPH);
+
+  for (const e of GLOSSARY_ENTRIES) {
+    /* table of contents */
+    const a = document.createElement("a");
+    a.href = "#" + e.id;
+    a.className = "toc-link";
+    a.innerHTML = "<b>" + e.term + "</b>" +
+      (e.aka ? "<span>" + e.aka + "</span>" : "");
+    toc.appendChild(a);
+
+    /* the entry */
+    const sec = document.createElement("section");
+    sec.className = "entry";
+    sec.id = e.id;
+
+    const h = document.createElement("h2");
+    h.innerHTML = e.term +
+      (e.aka ? ' <span class="entry-aka">' + e.aka + "</span>" : "");
+    sec.appendChild(h);
+
+    const plain = document.createElement("p");
+    plain.className = "entry-plain";
+    plain.innerHTML = e.plain;
+    sec.appendChild(plain);
+
+    sec.appendChild(subhead("How it works in this model"));
+    for (const para of e.model) {
+      const p = document.createElement("p");
+      p.innerHTML = para;
+      sec.appendChild(p);
+    }
+
+    sec.appendChild(subhead("Why it sits here"));
+    const why = document.createElement("p");
+    why.innerHTML = e.why;
+    sec.appendChild(why);
+
+    /* footer: rows, params, the compartments it covers, cross-links */
+    const foot = document.createElement("div");
+    foot.className = "entry-foot";
+    if (e.params && e.params.length) {
+      foot.appendChild(meta("Driven by", paramLabels(e.params)));
+    }
+    if (nodesFor[e.id]) {
+      foot.appendChild(meta("In the cascade",
+        nodesFor[e.id].map(nodeLabel).join(" · ")));
+    }
+    if (e.see && e.see.length) {
+      const d = document.createElement("div");
+      d.className = "entry-meta";
+      const k = document.createElement("span");
+      k.className = "k"; k.textContent = "See also";
+      d.appendChild(k);
+      const v = document.createElement("span");
+      e.see.forEach((id, i) => {
+        const t = glossaryEntry(id);
+        if (!t) { return; }
+        if (i) { v.appendChild(document.createTextNode(" · ")); }
+        const link = document.createElement("a");
+        link.href = "#" + id; link.textContent = t.term;
+        v.appendChild(link);
+      });
+      d.appendChild(v);
+      foot.appendChild(d);
+    }
+    sec.appendChild(foot);
+    doc.appendChild(sec);
+  }
+
+  function subhead(t) {
+    const h = document.createElement("h3");
+    h.className = "entry-sub";
+    h.textContent = t;
+    return h;
+  }
+  function meta(k, v) {
+    const d = document.createElement("div");
+    d.className = "entry-meta";
+    const ks = document.createElement("span");
+    ks.className = "k"; ks.textContent = k;
+    const vs = document.createElement("span");
+    vs.innerHTML = v;
+    d.appendChild(ks); d.appendChild(vs);
+    return d;
+  }
+
+  /* ---- the pipe legend, drawn with the real cascade CSS -------------- */
+  const TYPES = [
+    ["cash", "Cash", "the main flow down the waterfall"],
+    ["draw", "Draw", "a reserve paying a shortfall"],
+    ["release", "Release", "a reserve's surplus going out"],
+    ["fund", "Fund", "cash topping a reserve up"],
+    ["carry", "Carry", "a balance crossing into the next period"],
+    ["test", "Test", "a gate, not a flow"]
+  ];
+  const NS = "http://www.w3.org/2000/svg";
+  const legend = document.getElementById("legend");
+  for (const [type, name, note] of TYPES) {
+    const row = document.createElement("div");
+    row.className = "legend-row";
+
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 90 16");
+    svg.setAttribute("class", "cascade-svg legend-swatch");
+    const defs = document.createElementNS(NS, "defs");
+    svg.appendChild(defs);
+    /* reuse the cascade's own marker shapes so the legend cannot lie */
+    const mk = document.createElementNS(NS, "marker");
+    mk.setAttribute("id", "lg-" + type);
+    mk.setAttribute("viewBox", "0 0 12 12");
+    mk.setAttribute("refX", "9"); mk.setAttribute("refY", "6");
+    mk.setAttribute("markerWidth", "8"); mk.setAttribute("markerHeight", "8");
+    mk.setAttribute("orient", "auto-start-reverse");
+    const shape = {
+      cash: ["M 1 1 L 11 6 L 1 11 z", "fill"],
+      fund: ["M 1 1 L 11 6 L 1 11 z", "fill"],
+      draw: ["M 1 2 L 6 6 L 1 10 M 6 2 L 11 6 L 6 10", "stroke"],
+      release: ["M 6 1 L 11 6 L 6 11 L 1 6 z", "stroke"],
+      carry: ["M 2 2 L 10 6 L 2 10", "stroke"],
+      test: ["M 2 2 L 10 6 L 2 10", "stroke"]
+    }[type];
+    const colour = { cash: "var(--liquid)", draw: "var(--draw)",
+      release: "var(--release)", fund: "var(--fund)",
+      carry: "var(--ink-3)", test: "var(--ink-3)" }[type];
+    const mp = document.createElementNS(NS, "path");
+    mp.setAttribute("d", shape[0]);
+    if (shape[1] === "fill") {
+      mp.setAttribute("fill", colour);
+    } else {
+      mp.setAttribute("fill", "none");
+      mp.setAttribute("stroke", colour);
+      mp.setAttribute("stroke-width", "2");
+      mp.setAttribute("stroke-linecap", "round");
+    }
+    mk.appendChild(mp); defs.appendChild(mk);
+
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "pipe pipe-" + type + " is-active");
+    const p = document.createElementNS(NS, "path");
+    p.setAttribute("d", "M 2 8 L 74 8");
+    p.setAttribute("class", "pipe-line");
+    p.setAttribute("marker-end", "url(#lg-" + type + ")");
+    g.appendChild(p);
+    svg.appendChild(g);
+    row.appendChild(svg);
+
+    const txt = document.createElement("div");
+    txt.className = "legend-text";
+    txt.innerHTML = "<b>" + name + "</b><span>" + note + "</span>";
+    row.appendChild(txt);
+    legend.appendChild(row);
+  }
+
+  /* highlight the entry the cascade sent us to */
+  function flash() {
+    const id = location.hash.replace("#", "");
+    document.querySelectorAll(".entry.is-target")
+      .forEach((n) => n.classList.remove("is-target"));
+    if (!id) { return; }
+    const t = document.getElementById(id);
+    if (t) { t.classList.add("is-target"); }
+  }
+  window.addEventListener("hashchange", flash);
+  flash();
+})();
+</script>
+</body>
+</html>
