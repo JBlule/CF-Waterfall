@@ -8,67 +8,74 @@
 
 const PARAM_GROUPS = [
   {
-    title: "Revenue & costs",
+    title: "Revenue and operating costs",
     open: true,
     params: [
-      { id: "Traffic_Base", label: "Traffic base", unit: "km/yr",
+      { id: "Traffic_Base", label: "Base traffic volume", unit: "km/yr",
         min: 5e6, max: 50e6, step: 1e6, fmt: "km" },
-      { id: "Tariff_km", label: "Tariff per km", unit: "€/km",
+      { id: "Tariff_km", label: "Toll tariff per km", unit: "€/km",
         min: 0.05, max: 0.40, step: 0.01, fmt: "eur3" },
-      { id: "CPI", label: "Inflation (CPI)", unit: "%/yr",
+      { id: "CPI", label: "Indexation (CPI)", unit: "%/yr",
         min: 0, max: 0.06, step: 0.005, fmt: "pct" },
-      { id: "OPEX_Base", label: "Operating costs", unit: "€/yr",
+      { id: "OPEX_Base", label: "Operating costs (OPEX)", unit: "€/yr",
         min: 200000, max: 2000000, step: 50000, fmt: "eur" }
     ]
   },
   {
-    title: "Maintenance",
+    title: "Heavy maintenance",
     open: true,
     params: [
-      { id: "HM_Base", label: "Heavy maintenance base", unit: "€/yr",
+      { id: "HM_Base", label: "Recurring annual charge", unit: "€/yr",
         min: 50000, max: 500000, step: 25000, fmt: "eur" },
       /* Brief says 3…10. Widened to 1…30 because the engine now treats this
        * as a genuine interval (see ENGINE_NOTES.md section 1), so "a peak
        * every 15 years" is a meaningful setting. */
-      { id: "HM_Peak_Cycle", label: "Peak every", unit: "years",
+      { id: "HM_Peak_Cycle", label: "Peak falls every", unit: "years",
         min: 1, max: 30, step: 1, fmt: "int" },
-      { id: "HM_Peak_Amount", label: "Peak amount", unit: "€",
+      { id: "HM_Peak_Amount", label: "Charge in a peak year", unit: "€",
         min: 0, max: 12000000, step: 250000, fmt: "eur" }
     ]
   },
   {
-    title: "Debt",
+    title: "Senior debt",
     open: true,
     params: [
       /* "Auto (PV)" meant nothing to anyone who did not already know what a
        * present value was. Say what it actually does instead. */
       { id: "Sizing_Mode", label: "Debt sizing", kind: "toggle",
-        off: "I choose the amount", on: "Fit the debt to the cash flow",
-        note: "“Fit the debt to the cash flow” lends as much as the " +
-          "project's future cash can service at the target cover ratio, and " +
-          "shows the result below. Switch to “I choose” to set any " +
-          "amount yourself — useful for loading the project with too " +
-          "much debt and watching it struggle." },
-      { id: "Debt_Nominal", label: "Amount of debt", unit: "€",
+        off: "Set the amount manually", on: "Size to the cash flow",
+        note: "“Size to the cash flow” advances as much as the project's " +
+          "future CFADS can service at the target cover ratio, and reports " +
+          "the result below. Switch to “Set the amount manually” to fix any " +
+          "principal you like — useful for constructing a deliberately " +
+          "over-geared project and observing it fail." },
+      { id: "Debt_Nominal", label: "Principal advanced", unit: "€",
         min: 0, max: 60000000, step: 500000, fmt: "eur",
         disabledWhen: (p) => p.Sizing_Mode === 1 },
       { id: "Interest_Rate", label: "Interest rate", unit: "%",
         min: 0.01, max: 0.12, step: 0.0025, fmt: "pct" },
-      { id: "Debt_Duration", label: "Debt duration", unit: "years",
+      { id: "Debt_Duration", label: "Tenor", unit: "years",
         min: 5, max: 30, step: 1, fmt: "int" },
       { id: "DSCR", label: "DSCR sculpting target", unit: "×",
         min: 1.0, max: 2.0, step: 0.05, fmt: "x" }
     ]
   },
   {
-    title: "Reserves",
+    title: "Reserve accounts",
     open: true,
+    /* The three coefficients weight periods N+1, N+2 and N+3 -- the years
+     * still to come. The old labels ("this year", "next year", "year after")
+     * were off by one against the engine, which never reserves against a
+     * charge it has already settled. */
     params: [
-      { id: "MRA_Coef_N", label: "MRA cover this year", unit: "%",
-        min: 0, max: 2.0, step: 0.25, fmt: "pct0" },
-      { id: "MRA_Coef_N1", label: "MRA cover next year", unit: "%",
+      { id: "MRA_Coef_N", label: "MRA — cover of year N+1", unit: "%",
+        min: 0, max: 2.0, step: 0.25, fmt: "pct0",
+        note: "The maintenance reserve looks forward only. The current " +
+          "year's charge has already been settled, so the target is sized " +
+          "on the three years still to come." },
+      { id: "MRA_Coef_N1", label: "MRA — cover of year N+2", unit: "%",
         min: 0, max: 1.0, step: 0.25, fmt: "pct0" },
-      { id: "MRA_Coef_N2", label: "MRA cover year after", unit: "%",
+      { id: "MRA_Coef_N2", label: "MRA — cover of year N+3", unit: "%",
         min: 0, max: 1.0, step: 0.25, fmt: "pct0" }
     ]
   },
@@ -81,22 +88,22 @@ const PARAM_GROUPS = [
         min: 1.0, max: 1.5, step: 0.05, fmt: "x" },
       { id: "LLCR_Min", label: "LLCR lock-up threshold", unit: "×",
         min: 1.0, max: 1.5, step: 0.05, fmt: "x" },
-      { id: "DSCR_Distrib", label: "Post-distribution floor", unit: "×",
+      { id: "DSCR_Distrib", label: "Post-distribution cover floor", unit: "×",
         min: 1.0, max: 1.3, step: 0.05, fmt: "x" }
     ]
   },
   {
-    title: "Horizon",
+    title: "Model horizon",
     open: false,
     advanced: true,
     params: [
-      { id: "Year_Base", label: "First year", unit: "",
+      { id: "Year_Base", label: "First year of operations", unit: "",
         min: 2020, max: 2040, step: 1, fmt: "year" },
-      /* Honest label: in Feuil1 this drives only the year-header rows. The
-       * model is always 31 periods wide. */
-      { id: "Num_Periods", label: "Years shown (labels only)", unit: "yrs",
+      /* Honest label: in the workbook this drives only the year-header rows.
+       * The model is always 31 periods wide. */
+      { id: "Num_Periods", label: "Years labelled", unit: "yrs",
         min: 10, max: 30, step: 1, fmt: "int",
-        note: "Display only — the model always computes 31 periods." }
+        note: "Labelling only — the model always computes 31 periods." }
     ]
   }
 ];

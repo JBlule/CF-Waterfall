@@ -361,8 +361,10 @@ class Cascade {
       /* value readout */
       if (id === "LOCKUP") {
         const reachedGate = !stepping || stage >= NODE_STAGE.LOCKUP;
+        /* Same two words the narration uses, so the gate and the prose
+         * beneath it cannot appear to disagree. */
         n.valueText.textContent = !reachedGate ? ""
-          : (p.tests.allowed === 1 ? "PASS" : "BLOCKED");
+          : (p.tests.allowed === 1 ? "PERMITTED" : "LOCKED UP");
         n.g.classList.toggle("is-blocked",
           reachedGate && p.tests.allowed !== 1);
         n.g.classList.toggle("is-passed",

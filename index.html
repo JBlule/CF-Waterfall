@@ -11,8 +11,8 @@
 
   <header class="masthead">
     <h1>Cash-flow waterfall</h1>
-    <span class="tagline">cash is water &mdash; watch it fall through the
-      structure, one period at a time</span>
+    <span class="tagline">cash is water &mdash; follow it down the order of
+      priority, one period at a time</span>
     <nav>
       <a class="btn" href="glossary.html">Glossary</a>
     </nav>
@@ -20,22 +20,23 @@
 
   <section class="intro">
     <p>
-      <b>What this is.</b> A simulation of how cash circulates through a
-      <b>motorway project company</b> — a special-purpose vehicle that borrows
-      to build a road, then collects tolls and pays everyone back in a fixed
-      order of priority. Cash is water: it is poured in at the top of the
-      cascade and every claim on it is met, or not, as it falls. Whatever
-      reaches the bottom belongs to the shareholders.
+      <b>What this is.</b> A simulation of the cash circulating through a
+      <b>motorway concession company</b> — a special-purpose vehicle that
+      borrows to build the road, then collects toll revenue and discharges
+      its obligations in a contractually fixed order of priority. Cash is
+      treated as water: it is poured in at the top of the waterfall, and each
+      claim is met, in rank, as it falls. Whatever survives to the bottom
+      belongs to the shareholders.
     </p>
     <p>
-      The plumbing is drawn in the manner of the
+      The plumbing is drawn after the
       <a href="https://en.wikipedia.org/wiki/Phillips_Machine"
          target="_blank" rel="noopener noreferrer">MONIAC</a> — the
       Phillips Machine, a hydraulic computer built in 1949 that modelled a
-      national economy as water flowing between perspex tanks. Press
-      <b>Run the cascade</b> to watch the years go by, or <b>Step</b> to walk
-      through a single year one stage at a time. Click any tank or any pipe to
-      find out what it is.
+      national economy as water moving between perspex tanks. Press
+      <b>Run the waterfall</b> to play the periods in sequence, or
+      <b>Step</b> to work through a single period one stage at a time. Select
+      any compartment or any pipe for its definition and its figures.
     </p>
   </section>
 
@@ -49,10 +50,10 @@
 
     <div class="controls">
       <button class="btn is-primary" id="btnRun" title="Play the periods in sequence">
-        &#9654; Run the cascade</button>
-      <button class="btn" id="btnStep" title="Advance one waterfall stage">
+        &#9654; Run the waterfall</button>
+      <button class="btn" id="btnStep" title="Advance one stage of the waterfall">
         Step &#8677;</button>
-      <button class="btn" id="btnReset" title="Back to period 1">Reset</button>
+      <button class="btn" id="btnReset" title="Return to period 1">Reset</button>
 
       <span class="ctl-sep"></span>
 
@@ -92,7 +93,7 @@
   </main>
 
   <aside class="inspector">
-    <p class="panel-title">What am I looking at?</p>
+    <p class="panel-title">Definition and figures</p>
     <div id="inspector"></div>
   </aside>
 

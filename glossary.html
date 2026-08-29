@@ -13,7 +13,7 @@
     <h1>Glossary</h1>
     <span class="tagline">the mechanisms behind the tanks and pipes</span>
     <nav>
-      <a class="btn is-primary" href="index.html">&#9664; Back to the cascade</a>
+      <a class="btn is-primary" href="index.html">&#9664; Back to the waterfall</a>
     </nav>
   </header>
 
@@ -27,10 +27,9 @@
 
   <main class="doc" id="doc">
     <p class="doc-lede">
-      Every compartment and every pipe in the cascade has an entry here. Each
-      one says what the mechanism is in plain language, how it works in
-      <em>this</em> model, and why it sits where it does in the order of
-      priority.
+      Every compartment and every pipe in the waterfall has an entry here.
+      Each states what the mechanism is, how it operates in <em>this</em>
+      model, and where it ranks in the order of priority.
     </p>
     <footer class="site-footer">
       <a href="https://philomathlearning.com/studio?utm_source=member_project&utm_medium=badge&utm_campaign=vcs_gallery"
@@ -87,14 +86,14 @@
     plain.innerHTML = e.plain;
     sec.appendChild(plain);
 
-    sec.appendChild(subhead("How it works in this model"));
+    sec.appendChild(subhead("How it operates in this model"));
     for (const para of e.model) {
       const p = document.createElement("p");
       p.innerHTML = para;
       sec.appendChild(p);
     }
 
-    sec.appendChild(subhead("Why it sits here"));
+    sec.appendChild(subhead("Where it ranks, and why"));
     const why = document.createElement("p");
     why.innerHTML = e.why;
     sec.appendChild(why);
@@ -106,7 +105,7 @@
       foot.appendChild(meta("Driven by", paramLabels(e.params)));
     }
     if (nodesFor[e.id]) {
-      foot.appendChild(meta("In the cascade",
+      foot.appendChild(meta("In the waterfall",
         nodesFor[e.id].map(nodeLabel).join(" · ")));
     }
     if (e.see && e.see.length) {
@@ -151,9 +150,9 @@
   /* ---- the pipe legend, drawn with the real cascade CSS -------------- */
   const TYPES = [
     ["cash", "Cash", "the main flow down the waterfall"],
-    ["draw", "Draw", "a reserve paying a shortfall"],
+    ["draw", "Draw", "a reserve meeting a shortfall"],
     ["release", "Release", "a reserve's surplus going out"],
-    ["fund", "Fund", "cash topping a reserve up"],
+    ["fund", "Fund", "cash replenishing a reserve"],
     ["carry", "Carry", "a balance crossing into the next period"]
   ];
   const NS = "http://www.w3.org/2000/svg";

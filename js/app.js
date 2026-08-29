@@ -93,13 +93,16 @@
     run = WF.runAll(params);
     panel.refresh(run.pre.principalUsed);
 
-    /* Never hide a NaN: surface it with the exact row and period. */
+    /* Never hide a NaN: surface it with the exact row and period. No
+     * spreadsheet reference in the text -- the workbook validates the
+     * engine, it is not something a reader of this app has to know about. */
     if (run.anomalies.length) {
       const a = run.anomalies[0];
       els.anomaly.textContent =
-        "Non-finite value produced: " + run.anomalies.length +
-        " cell(s). First at Feuil1 row " + a.row + ", period " + a.period +
-        " = " + a.value + ". The affected tanks are outlined in red.";
+        "Non-finite value produced in " + run.anomalies.length +
+        " cell(s). The first arises in period " + a.period +
+        " (internal row " + a.row + ") and reads " + a.value +
+        ". The affected compartments are outlined in red.";
     } else {
       els.anomaly.textContent = "";
     }
@@ -130,7 +133,22 @@
 
   /* ---------------------------------------------------------------
    * the six-stage strip
+   *
+   * src/engine.js owns STAGES and is the proven file we do not touch, but
+   * its labels are working names. Overridden here for display only, on the
+   * same principle as js/labels.js.
    * --------------------------------------------------------------- */
+
+  const STAGE_LABEL = {
+    carry:   "Bring the cash forward",
+    hm:      "Settle heavy maintenance",
+    debt:    "Service the senior debt",
+    resid:   "Cash for the reserve accounts",
+    reserve: "Replenish reserves, release surplus",
+    distrib: "Lock-up tests and distribution"
+  };
+
+  function stageLabel(s) { return STAGE_LABEL[s.id] || s.label; }
 
   function renderStagebar() {
     els.stagebar.classList.toggle("is-hidden", stage === null);
@@ -145,7 +163,7 @@
       n.className = "n";
       n.textContent = "STAGE " + (i + 1);
       b.appendChild(n);
-      b.appendChild(document.createTextNode(s.label));
+      b.appendChild(document.createTextNode(stageLabel(s)));
       b.addEventListener("click", () => { pause(); stage = i; draw(); });
       els.stagebar.appendChild(b);
     });
@@ -168,34 +186,37 @@
     switch (WF.STAGES[stage].id) {
       case "carry":
         parts.push(`Toll revenue <b>${M(run.pre.toll.nominal[periodIndex])}</b>` +
-          ` less operating costs <b>${M(run.pre.opex.nominal[periodIndex])}</b>` +
-          ` plus <b>${M(p.treasuryBoP)}</b> carried forward from last period` +
-          ` gives current cash of <b>${M(p.currentCash)}</b>.`);
+          ` less operating costs <b>${M(run.pre.opex.nominal[periodIndex])}</b>,` +
+          ` plus <b>${M(p.treasuryBoP)}</b> carried forward from the previous` +
+          ` period, gives cash in hand of <b>${M(p.currentCash)}</b>.`);
         break;
       case "hm":
-        parts.push(`Heavy maintenance of <b>${M(p.hm.hmDue)}</b> is due, and it` +
-          ` ranks ahead of the debt. <b>${M(p.hm.hmFromCash)}</b> comes from` +
+        parts.push(`Heavy maintenance of <b>${M(p.hm.hmDue)}</b> falls due, ranking` +
+          ` ahead of the lenders. <b>${M(p.hm.hmFromCash)}</b> is met from` +
           ` cash` + (p.hm.hmFromMra > 0.5
-            ? `, and the MRA is drawn for the <b>${M(p.hm.hmFromMra)}</b> shortfall`
-            : ` and the MRA is not touched`) +
-          `. That leaves <b>${M(p.hm.cashAfterHm)}</b> for the lenders.`);
+            ? `, and the maintenance reserve is drawn against the` +
+              ` <b>${M(p.hm.hmFromMra)}</b> shortfall`
+            : ` and the maintenance reserve is left untouched`) +
+          `. That leaves <b>${M(p.hm.cashAfterHm)}</b> for debt service.`);
         if (p.hm.hmSignal) { parts.push(flag(p.hm.hmSignal)); }
         break;
       case "debt": {
         const d = p.debt;
         const bits = [];
         if (d.deferredBoP > 0.5) {
-          bits.push(`arrears of <b>${M(d.deferredBoP)}</b> take priority and` +
+          bits.push(`arrears of <b>${M(d.deferredBoP)}</b> rank first, of which` +
             ` <b>${M(d.deferredPaid)}</b> is repaid`);
         }
         bits.push(`interest of <b>${M(d.interestAccrued)}</b> accrues and` +
           ` <b>${M(d.interestPaid)}</b> is paid`);
         if (d.dsraDraw > 0.5) {
-          bits.push(`the DSRA is drawn for <b>${M(d.dsraDraw)}</b> to top that up`);
+          bits.push(`the debt service reserve is drawn for` +
+            ` <b>${M(d.dsraDraw)}</b> to make up the difference`);
         }
         bits.push(`principal sculpted to <b>${M(d.principalTarget)}</b>, of which` +
           ` <b>${M(d.principalPaid)}</b> is actually repaid`);
-        parts.push(`In strict order — deferred, then interest, then principal: ` +
+        parts.push(`In strict rank — deferred interest, then current interest,` +
+          ` then principal: ` +
           bits.join("; ") + `. Debt service <b>${M(d.debtService)}</b>` +
           (d.debtService > 0 ? `, DSCR <b>${ratio(p.dscrRealised)}</b>` : "") + `.`);
         if (d.deferredAddition > 0.5) {
@@ -205,36 +226,39 @@
         break;
       }
       case "resid":
-        parts.push(`After the lenders are served, <b>${M(p.cashForReserves)}</b>` +
-          ` is available for the reserve accounts.`);
+        parts.push(`With the lenders served, <b>${M(p.cashForReserves)}</b>` +
+          ` remains for the reserve accounts.`);
         break;
       case "reserve":
-        parts.push(`The MRA is topped up by <b>${M(p.mra.recharge)}</b> toward its` +
-          ` target of <b>${M(p.mraTarget)}</b>, then the DSRA by` +
-          ` <b>${M(p.dsra.recharge)}</b> toward <b>${M(p.dsraTarget)}</b>.` +
+        parts.push(`The maintenance reserve is replenished by` +
+          ` <b>${M(p.mra.recharge)}</b> against a target of` +
+          ` <b>${M(p.mraTarget)}</b>, then the debt service reserve by` +
+          ` <b>${M(p.dsra.recharge)}</b> against <b>${M(p.dsraTarget)}</b>.` +
           ((p.mra.release + p.dsra.release) > 0.5
-            ? ` Surplus above target is released: <b>${M(p.mra.release + p.dsra.release)}</b>` +
-              ` flows out to equity.`
+            ? ` Surplus above target is released:` +
+              ` <b>${M(p.mra.release + p.dsra.release)}</b> becomes available` +
+              ` for distribution.`
             : ` Neither reserve is above its target, so nothing is released.`) +
-          ` <b>${M(p.cashEq)}</b> reaches the equity gate.`);
+          ` <b>${M(p.cashEq)}</b> is presented to the lock-up tests.`);
         break;
       case "distrib": {
         const t = p.tests;
-        const names = [["DSCR", t.dscrOk], ["LLCR", t.llcrOk],
-                       ["MRA filled", t.mraOk], ["DSRA filled", t.dsraOk]];
+        const names = [["the DSCR test", t.dscrOk], ["the LLCR test", t.llcrOk],
+                       ["MRA funding", t.mraOk], ["DSRA funding", t.dsraOk]];
         const failed = names.filter(([, v]) => v !== 1).map(([k]) => k);
         if (t.allowed === 1) {
-          parts.push(`All four lock-up tests pass, so a distribution is allowed.` +
-            ` Capped at <b>${M(p.distribution.maxPermissible)}</b> to leave a` +
-            ` buffer behind, <b>${M(p.distribution.distribution)}</b> goes to` +
-            ` shareholders and <b>${M(p.distribution.treasuryEoP)}</b> is carried` +
-            ` into the next period.`);
-          parts.push(flag("DISTRIBUTION ALLOWED", true));
+          parts.push(`All four lock-up tests are satisfied, so a distribution is` +
+            ` permitted. Capped at <b>${M(p.distribution.maxPermissible)}</b> to` +
+            ` retain a buffer, <b>${M(p.distribution.distribution)}</b> is` +
+            ` distributed to the shareholders and` +
+            ` <b>${M(p.distribution.treasuryEoP)}</b> is carried forward into` +
+            ` the next period.`);
+          parts.push(flag("DISTRIBUTION PERMITTED", true));
         } else {
-          parts.push(`Distribution is blocked: ${failed.join(", ")}` +
-            ` ${failed.length === 1 ? "fails" : "fail"}. All of` +
-            ` <b>${M(p.cashEq)}</b> is trapped in treasury and comes back next` +
-            ` period.`);
+          parts.push(`Distribution is locked up: ${failed.join(", ")}` +
+            ` ${failed.length === 1 ? "fails" : "fail"}. The whole of` +
+            ` <b>${M(p.cashEq)}</b> is retained by the project company and` +
+            ` returns next period.`);
           parts.push(flag("LOCKED UP"));
         }
         break;
@@ -261,7 +285,7 @@
     { label: "Distribution", stage: 5,
       get: (p) => money(p.distribution.distribution),
       cls: (p) => p.distribution.distribution > 0.5 ? "is-ok" : "" },
-    { label: "Treasury", stage: 5,
+    { label: "Cash carried forward", stage: 5,
       get: (p) => money(p.distribution.treasuryEoP) }
   ];
 
@@ -296,9 +320,9 @@
       panel.highlight([]);
       const h = document.createElement("p");
       h.className = "insp-empty";
-      h.textContent = "Click any tank or any pipe to see what it is, " +
-        "what it holds this period, and why it sits where it does in the " +
-        "order of priority.";
+      h.textContent = "Select any compartment or any pipe to see what it " +
+        "is, what it holds this period, and where it ranks in the order of " +
+        "priority.";
       box.appendChild(h);
       return;
     }
@@ -309,7 +333,7 @@
       add(box, "div", "insp-kicker", kindWord(n.kind));
       add(box, "h2", "insp-title", displayLabel(n));
       const b = add(box, "div", "insp-body");
-      add(b, "p", null, n.doc);
+      add(b, "p", null, displayDoc(n));
 
       const figs = document.createElement("dl");
       figs.className = "insp-figs";
@@ -345,7 +369,7 @@
     const e = selection.edge;
     panel.highlight([]);
     add(box, "div", "insp-kicker", "pipe");
-    add(box, "h2", "insp-title", e.flow);
+    add(box, "h2", "insp-title", displayFlow(e));
     const tag = add(box, "span", "insp-flowtype ft-" + e.type, e.type);
     const b2 = add(box, "div", "insp-body");
     b2.style.marginTop = ".7rem";
@@ -393,36 +417,36 @@
       const h2 = i + 2 < WF.NP ? hm[i + 2] : 0;
       const h3 = i + 3 < WF.NP ? hm[i + 3] : 0;
       const bits = [
-        pct(prm.MRA_Coef_N) + " of next year's maintenance bill (<b>" +
+        pct(prm.MRA_Coef_N) + " of next year's maintenance charge (<b>" +
           M(h1) + "</b>)",
         pct(prm.MRA_Coef_N1) + " of the year after (<b>" + M(h2) + "</b>)",
-        pct(prm.MRA_Coef_N2) + " of the year after that (<b>" + M(h3) + "</b>)"
+        pct(prm.MRA_Coef_N2) + " of the third year out (<b>" + M(h3) + "</b>)"
       ];
-      let s = "<em>Period " + p.period + ":</em> the reserve funds the " +
+      let s = "<em>Period " + p.period + ":</em> the reserve is sized on the " +
         "maintenance still to come, so the target is " +
         bits.join(" + ") + " = <b>" + M(p.mraTarget) + "</b>.";
       if (i + 1 < WF.NP && h1 > run.pre.hm.nominal[i] * 1.5) {
         s += " Next year carries a maintenance peak, which is why the target " +
-          "jumps this period — the cash has to be set aside <em>before</em> " +
-          "the bill arrives.";
+          "rises this period — the funds must be set aside <em>before</em> " +
+          "the charge arrives.";
       }
       if (i + 3 >= WF.NP) {
-        s += " Periods beyond the end of the model count as zero, which is " +
-          "why the target falls away here.";
+        s += " Periods beyond the model horizon count as zero, which is why " +
+          "the target falls away here.";
       }
-      s += " The reserve holds <b>" + M(p.mra.eop) + "</b> at the end of " +
+      s += " The reserve holds <b>" + M(p.mra.eop) + "</b> at the close of " +
         "the period" +
         (p.mra.eop < p.mraTarget - 0.5
           ? ", so it is <b>short of target</b> and the lock-up test fails."
-          : ", so it is <b>at target</b> and the lock-up test passes.");
+          : ", so it is <b>at target</b> and the lock-up test is satisfied.");
       return s;
     }
 
     if (id === "DSRA" || id === "DSRA_RECH") {
       if (p.period >= WF.NP) {
-        return "<em>Period " + p.period + ":</em> this is the last period of " +
-          "the model, so there is no next period to reserve against. The " +
-          "target drops to <b>€0</b> and the whole balance is released.";
+        return "<em>Period " + p.period + ":</em> this is the final period of " +
+          "the model, so there is no subsequent period to reserve against. " +
+          "The target falls to <b>€0</b> and the entire balance is released.";
       }
       const nextDebt = p.debt.debtEoP;
       const nextInterest = nextDebt * prm.Interest_Rate;
@@ -430,19 +454,19 @@
       const nextPrincipal = WF.principalTarget(
         p.period + 1, nextDebt, run.pre.cfadsTarget[p.period],
         nextInterest, prm.Debt_Duration);
-      let s = "<em>Period " + p.period + ":</em> the target is what the " +
-        "lenders are scheduled to be paid <em>next</em> period — interest of " +
+      let s = "<em>Period " + p.period + ":</em> the target is the debt " +
+        "service scheduled for the <em>following</em> period — interest of " +
         "<b>" + M(nextInterest) + "</b> (" + pct(prm.Interest_Rate) +
-        " on the <b>" + M(nextDebt) + "</b> still outstanding) plus the " +
-        "sculpted principal of <b>" + M(nextPrincipal) + "</b>, giving <b>" +
+        " on the <b>" + M(nextDebt) + "</b> then outstanding) plus sculpted " +
+        "principal of <b>" + M(nextPrincipal) + "</b>, giving <b>" +
         M(p.dsraTarget) + "</b>.";
       if (nextPrincipal <= 0.5 && p.period < prm.Debt_Duration) {
         s += " No principal is scheduled next period, because interest " +
-          "alone already absorbs the cash the cover ratio allows.";
+          "alone already absorbs the cash the cover ratio permits.";
       }
       s += " The reserve holds <b>" + M(p.dsra.eop) + "</b>" +
         (p.dsra.eop < p.dsraTarget - 0.5
-          ? ", <b>short of target</b> — so distributions are blocked."
+          ? ", <b>short of target</b> — so distributions are locked up."
           : ", <b>at target</b>.");
       return s;
     }
@@ -470,29 +494,30 @@
   }
 
   const PIPE_DOC = {
-    cash: "A normal cash movement down the waterfall. Each stage keeps what " +
-      "it is entitled to and passes the remainder on.",
-    draw: "A DRAW: the reservoir pays a shortfall the operating cash could " +
-      "not cover. Money leaves the reserve to meet an obligation. Drawn " +
-      "heavy and amber so it never reads like a release.",
-    release: "A RELEASE: the reserve is holding more than its target " +
-      "requires, so the surplus is let go and becomes available to equity. " +
+    cash: "An ordinary movement of cash down the waterfall. Each stage " +
+      "retains what it is entitled to and passes the remainder on.",
+    draw: "A DRAW: the reserve account meets an obligation the operating " +
+      "cash could not cover. Cash leaves the reserve to discharge a claim. " +
+      "Drawn heavy and amber so that it never reads as a release.",
+    release: "A RELEASE: the reserve holds more than its target requires, " +
+      "so the surplus is let go and becomes available for distribution. " +
       "The opposite direction of value from a draw.",
-    fund: "Cash topping the reserve back up toward its target, after debt " +
-      "has been served. The reserve has first call on this cash, before " +
-      "shareholders.",
+    fund: "Cash replenishing a reserve account toward its target, once the " +
+      "lenders have been served. The reserve has first call on this cash, " +
+      "ahead of the shareholders.",
     carry: "An inter-period link: this is how a balance survives from one " +
       "period into the next.",
-    test: "A gate rather than a flow. Cash only passes if the lock-up tests " +
-      "all pass.",
-    priority: "An ordering inside the debt compartment: the bucket above " +
-      "must be filled before anything reaches the one below."
+    test: "A gate rather than a flow. Cash passes only where all four " +
+      "lock-up tests are satisfied.",
+    priority: "A ranking within the debt compartment: the bucket above must " +
+      "be filled before any cash reaches the one beneath it."
   };
 
   function kindWord(kind) {
-    return ({ source: "inflow", reservoir: "reservoir — holds a level",
+    return ({ source: "inflow",
+      reservoir: "account — carries a balance across periods",
       compute: "within-period stage", compound: "compound compartment",
-      subcompartment: "debt sub-compartment", test: "gate",
+      subcompartment: "debt sub-compartment", test: "lock-up gate",
       sink: "outflow" })[kind] || kind;
   }
 
@@ -509,67 +534,70 @@
              ["Peak year?", r.pre.hm.peak[p.period - 1] > 0 ? "yes" : "no"],
              ["Cycle position", r.pre.hm.counter[p.period - 1] + " of " +
                r.params.HM_Peak_Cycle]],
-      TREAS_BOP: [["Brought forward", M(p.treasuryBoP)]],
+      TREAS_BOP: [["Cash brought forward", M(p.treasuryBoP)]],
       CURCASH: [["Toll revenue", M(r.pre.toll.nominal[p.period - 1])],
                 ["Less operating costs", M(-r.pre.opex.nominal[p.period - 1])],
-                ["Plus treasury brought forward", M(p.treasuryBoP)],
-                ["Current cash", M(p.currentCash)]],
-      HM_PAY: [["HM due", M(p.hm.hmDue)],
-               ["Paid from cash", M(p.hm.hmFromCash)],
-               ["Drawn from MRA", M(p.hm.hmFromMra)],
+                ["Plus cash brought forward", M(p.treasuryBoP)],
+                ["Cash in hand", M(p.currentCash)]],
+      HM_PAY: [["Maintenance charge due", M(p.hm.hmDue)],
+               ["Met from cash", M(p.hm.hmFromCash)],
+               ["Drawn from the MRA", M(p.hm.hmFromMra)],
                ["Signal", p.hm.hmSignal || "none"]],
-      CASH_AHM: [["Cash after HM", M(p.hm.cashAfterHm)]],
+      CASH_AHM: [["Cash after heavy maintenance", M(p.hm.cashAfterHm)]],
       MRA: [["Opening balance", M(p.mraBoP)], ["Target", M(p.mraTarget)],
-            ["Drawn for HM", M(p.hm.hmFromMra)],
-            ["Recharged", M(p.mra.recharge)], ["Released", M(p.mra.release)],
+            ["Drawn for maintenance", M(p.hm.hmFromMra)],
+            ["Replenished", M(p.mra.recharge)], ["Released", M(p.mra.release)],
             ["Closing balance", M(p.mra.eop)]],
       DSRA: [["Opening balance", M(p.dsraBoP)], ["Target", M(p.dsraTarget)],
-             ["Drawn for debt", M(p.debt.dsraDraw)],
-             ["Recharged", M(p.dsra.recharge)], ["Released", M(p.dsra.release)],
+             ["Drawn for interest", M(p.debt.dsraDraw)],
+             ["Replenished", M(p.dsra.recharge)], ["Released", M(p.dsra.release)],
              ["Closing balance", M(p.dsra.eop)]],
-      DEBT: [["Opening debt", M(p.debt.debtBoP)],
+      DEBT: [["Opening balance", M(p.debt.debtBoP)],
              ["Interest accrued", M(p.debt.interestAccrued)],
              ["Debt service paid", M(p.debt.debtService)],
              ["DSCR realised", R(p.dscrRealised)],
-             ["Closing debt", M(p.debt.debtEoP)],
+             ["Closing balance", M(p.debt.debtEoP)],
              ["Deferred interest", M(p.debt.deferredEoP)],
              ["Signal", p.debtSignal || "none"]],
-      DEBT_DEF: [["Arrears brought in", M(p.debt.deferredBoP)],
+      DEBT_DEF: [["Arrears brought forward", M(p.debt.deferredBoP)],
                  ["Repaid", M(p.debt.deferredPaid)],
-                 ["Added (unpaid interest)", M(p.debt.deferredAddition)],
-                 ["Carried out", M(p.debt.deferredEoP)]],
+                 ["Newly deferred", M(p.debt.deferredAddition)],
+                 ["Arrears carried forward", M(p.debt.deferredEoP)]],
       DEBT_INT: [["Interest accrued", M(p.debt.interestAccrued)],
                  ["Interest paid", M(p.debt.interestPaid)],
-                 ["DSRA top-up used", M(p.debt.dsraDraw)]],
+                 ["Of which drawn from the DSRA", M(p.debt.dsraDraw)]],
       DEBT_PRIN: [["Sculpted target", M(p.debt.principalTarget)],
                   ["Actually repaid", M(p.debt.principalPaid)],
-                  ["Debt remaining", M(p.debt.debtEoP)]],
-      CASH_RES: [["Cash for reserves", M(p.cashForReserves)]],
+                  ["Balance outstanding", M(p.debt.debtEoP)]],
+      CASH_RES: [["Cash for the reserve accounts", M(p.cashForReserves)]],
       MRA_RECH: [["Contribution", M(p.mra.recharge)],
-                 ["Gap to target", M(Math.max(0, p.mraTarget - p.mra.eop))]],
+                 ["Shortfall against target",
+                  M(Math.max(0, p.mraTarget - p.mra.eop))]],
       DSRA_RECH: [["Contribution", M(p.dsra.recharge)],
-                  ["Gap to target", M(Math.max(0, p.dsraTarget - p.dsra.eop))]],
-      CASH_EQ: [["Available to equity", M(p.cashEq)],
+                  ["Shortfall against target",
+                   M(Math.max(0, p.dsraTarget - p.dsra.eop))]],
+      CASH_EQ: [["Available for distribution", M(p.cashEq)],
                 ["Of which MRA release", M(p.mra.release)],
                 ["Of which DSRA release", M(p.dsra.release)]],
       LOCKUP: [["DSCR test", gate(p.tests.dscrOk) + "  (" + R(p.dscrRealised) +
                  " vs " + r.params.DSCR_Min.toFixed(2) + "×)"],
                ["LLCR test", gate(p.tests.llcrOk) + "  (" + R(p.llcr) +
                  " vs " + r.params.LLCR_Min.toFixed(2) + "×)"],
-               ["MRA filled", gate(p.tests.mraOk)],
-               ["DSRA filled", gate(p.tests.dsraOk)],
-               ["Distribution allowed", gate(p.tests.allowed)]],
+               ["MRA at target", gate(p.tests.mraOk)],
+               ["DSRA at target", gate(p.tests.dsraOk)],
+               ["Distribution permitted", gate(p.tests.allowed)]],
       DISTRIB: [["Cash available", M(p.cashEq)],
                 ["Maximum permissible", M(p.distribution.maxPermissible)],
                 ["Distributed", M(p.distribution.distribution)]],
-      TREAS_EOP: [["Carried to next period", M(p.distribution.treasuryEoP)]]
+      TREAS_EOP: [["Carried into the next period",
+                   M(p.distribution.treasuryEoP)]]
     };
     return t[id] || [];
   }
 
-  /* "Pass"/"Fail", not "pass"/"FAIL": the lamp colour already carries the
-   * alarm, so the two words should at least be capitalised alike. */
-  function gate(v) { return v === 1 ? "Pass" : "Fail"; }
+  /* "Satisfied"/"Failed", not "pass"/"FAIL": the lamp colour already carries
+   * the alarm, so the two words should at least be capitalised alike. */
+  function gate(v) { return v === 1 ? "Satisfied" : "Failed"; }
 
   function add(parent, tag, cls, text) {
     const n = document.createElement(tag);
@@ -619,7 +647,7 @@
     if (timer) { clearInterval(timer); timer = null; }
     cascade.setRunning(false);
     cascade.setFillSpeed(500);
-    els.run.innerHTML = "&#9654; Run the cascade";
+    els.run.innerHTML = "&#9654; Run the waterfall";
     els.run.classList.add("is-primary");
   }
 
