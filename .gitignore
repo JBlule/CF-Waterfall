@@ -18,3 +18,6 @@ __pycache__/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Working documents dropped into the project folder
+*.docx

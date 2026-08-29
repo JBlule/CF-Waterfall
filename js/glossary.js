@@ -226,10 +226,16 @@ const GLOSSARY_ENTRIES = [
     plain: "A savings account for future maintenance bills, so that a peak " +
       "year does not sink an otherwise healthy project.",
     model: [
-      "Its target is a weighted look-ahead at the next three heavy " +
-      "maintenance bills: a share of this year's, a smaller share of next " +
-      "year's, a smaller one again of the year after. Set all three shares to " +
+      "Its target is a weighted look-ahead at the maintenance still to " +
+      "<em>come</em>: a share of next year's bill, a smaller share of the " +
+      "year after, a smaller one again of the year after that. The current " +
+      "year's own bill does not appear — it has already been paid, so " +
+      "reserving against it would serve no purpose. Set all three shares to " +
       "zero and the reserve is switched off entirely.",
+      "The practical effect is that the target <b>rises the period before a " +
+      "maintenance peak</b>, not during it. The cash is trapped in the " +
+      "reserve a year ahead of the bill, which is the whole point: when the " +
+      "peak lands, the money is already there.",
       "It is drawn to cover a maintenance shortfall, topped back up from the " +
       "cash left after the lenders are served, and any balance above target " +
       "is released. The balance never goes below zero."

@@ -346,31 +346,19 @@
   {
    "from": "CASH_EQ",
    "to": "LOCKUP",
-   "flow": "apply lock-up tests",
-   "type": "test"
+   "flow": "all remaining cash enters the gate",
+   "type": "cash"
   },
   {
    "from": "LOCKUP",
    "to": "DISTRIB",
-   "flow": "if all tests pass",
-   "type": "test"
-  },
-  {
-   "from": "CASH_EQ",
-   "to": "DISTRIB",
-   "flow": "distributable (capped)",
+   "flow": "tests pass: the permitted distribution",
    "type": "cash"
   },
   {
-   "from": "CASH_EQ",
+   "from": "LOCKUP",
    "to": "TREAS_EOP",
-   "flow": "undistributed -> treasury",
-   "type": "cash"
-  },
-  {
-   "from": "DISTRIB",
-   "to": "TREAS_EOP",
-   "flow": "after distribution",
+   "flow": "everything not distributed",
    "type": "cash"
   },
   {
@@ -664,26 +652,7 @@
     0,
     0,
     1,
-    1,
-    1
-   ],
-   [
     0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
     0
    ],
    [
@@ -702,8 +671,27 @@
     0,
     0,
     0,
-    0,
+    1,
     1
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
    ],
    [
     0,

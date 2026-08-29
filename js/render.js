@@ -63,6 +63,14 @@ function pipePath(from, to, key) {
   const a = box(from), b = box(to);
   const override = EDGE_ROUTES[key];
 
+  if (override && override.style === "fork") {
+    /* out of the bottom, down to a shared lane, across, then down in */
+    const p0 = anchor(a, "bottom"), p1 = anchor(b, "top");
+    const lane = p0.y + (p1.y - p0.y) * 0.45;
+    return `M ${p0.x} ${p0.y} L ${p0.x} ${lane} L ${p1.x} ${lane} ` +
+           `L ${p1.x} ${p1.y}`;
+  }
+
   if (override && override.style === "rightMargin") {
     /* out of the right edge, up (or down) the margin lane, back in the right */
     const lane = override.lane;
@@ -403,17 +411,51 @@ class Cascade {
     for (const id in this.subs) {
       const s = this.subs[id];
       const { paid, due } = stagedSub(id, p, stage);
+      const subReached = !stepping || stage >= NODE_STAGE[id];
+
+      /* Interest and principal are per-period OBLIGATIONS, so their headline
+       * figure is what was paid. Deferred interest is the only one of the
+       * three that carries a BALANCE across periods, so its headline is what
+       * the project still owes at the end of the period. Showing what it
+       * repaid would print €0 on a compartment visibly filling with arrears. */
+      const arrears = (id === "DEBT_DEF" && subReached) ? p.debt.deferredEoP : 0;
+      const headline = (id === "DEBT_DEF") ? arrears : paid;
+
       const frac = due > 0.005 ? Math.max(0, Math.min(1, paid / due)) : 0;
       const hpx = frac * s.h;
       s.liquid.setAttribute("y", s.y + s.h - hpx);
       s.liquid.setAttribute("height", hpx);
-      s.paidText.textContent = money(paid);
-      /* SHORT and SERVED are both status stamps, so both are capitalised. */
-      s.dueText.textContent = due > 0.005
-        ? "due " + money(due) + (paid < due - 0.5 ? "  ·  SHORT" : "  ·  SERVED")
-        : "nothing due";
+      s.paidText.textContent = money(headline);
+
+      let sub;
+      if (id === "DEBT_DEF") {
+        /* describe the MOVEMENT here; the balance is already the headline */
+        const bits = [];
+        if (due > 0.005) {
+          bits.push(money(paid) + " of " + money(due) + " repaid");
+        }
+        if (subReached && p.debt.deferredAddition > 0.5) {
+          bits.push("+" + money(p.debt.deferredAddition) + " NEWLY DEFERRED");
+        }
+        sub = bits.length ? bits.join("  ·  ") : "no arrears";
+      } else {
+        /* SHORT and SERVED are both status stamps, so both are capitalised. */
+        sub = due > 0.005
+          ? "due " + money(due) + (paid < due - 0.5 ? "  ·  SHORT" : "  ·  SERVED")
+          : "nothing due";
+        if (subReached && id === "DEBT_INT" && p.debt.deferredAddition > 0.5) {
+          sub += "  →  " + money(p.debt.deferredAddition) + " DEFERRED";
+        }
+      }
+      s.dueText.textContent = sub;
+
+      const accruing =
+        (id === "DEBT_INT" && subReached && p.debt.deferredAddition > 0.5) ||
+        (id === "DEBT_DEF" && arrears > 0.5);
+      s.g.classList.toggle("is-accruing", accruing);
       s.g.classList.toggle("is-short", due > 0.5 && paid < due - 0.5);
-      s.g.classList.toggle("is-idle", due <= 0.005);
+      /* holding arrears is not "idle", even when nothing fell due this period */
+      s.g.classList.toggle("is-idle", due <= 0.005 && arrears <= 0.5);
       s.g.classList.toggle("is-served", due > 0.005 && paid >= due - 0.5);
     }
 
@@ -481,11 +523,12 @@ class Cascade {
       "MRA->CASH_EQ":         p.mra.release,
       "DSRA->CASH_EQ":        p.dsra.release,
       "CASH_RES->CASH_EQ":    p.cashForDsra - p.dsra.recharge,
+      /* The gate is a set of points, not a tank: all the cash arrives at it,
+       * and it is switched either to the shareholders or into treasury.
+       * These three amounts must therefore add up: in = out. */
       "CASH_EQ->LOCKUP":      p.cashEq,
-      "LOCKUP->DISTRIB":      p.tests.allowed === 1 ? p.distribution.distribution : 0,
-      "CASH_EQ->DISTRIB":     p.distribution.distribution,
-      "CASH_EQ->TREAS_EOP":   p.distribution.treasuryEoP,
-      "DISTRIB->TREAS_EOP":   p.distribution.treasuryEoP,
+      "LOCKUP->DISTRIB":      p.distribution.distribution,
+      "LOCKUP->TREAS_EOP":    p.distribution.treasuryEoP,
       "TREAS_EOP->TREAS_BOP": p.distribution.treasuryEoP
     };
     return (k in map) ? map[k] : null;

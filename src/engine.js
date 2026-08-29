@@ -362,12 +362,18 @@ var WF = (function () {
     return "";
   }
 
-  /* [R95] MRA target: a weighted look-ahead at the next three HM bills.
+  /* [R95] MRA target: a weighted look-ahead at the heavy maintenance still
+   * to COME -- periods N+1, N+2 and N+3, not the current period.
+   *
+   * The point of the reserve is to be holding, at the end of year N, enough
+   * to fund year N+1's bill -- above all in the years where a peak lands.
+   * Including the current year would mean saving for a bill already paid.
+   *
    * Periods past the end of the model read as blank, i.e. 0. */
   function mraTarget(hmNominal, idx, params) {
-    return params.MRA_Coef_N * cell(hmNominal, idx)
-         + params.MRA_Coef_N1 * cell(hmNominal, idx + 1)
-         + params.MRA_Coef_N2 * cell(hmNominal, idx + 2);
+    return params.MRA_Coef_N * cell(hmNominal, idx + 1)
+         + params.MRA_Coef_N1 * cell(hmNominal, idx + 2)
+         + params.MRA_Coef_N2 * cell(hmNominal, idx + 3);
   }
 
   /* [R99,R100,R101] and [R107,R108,R110] -- ONE mechanism, used for both

@@ -386,19 +386,27 @@
     const prm = run.params;
 
     if (id === "MRA" || id === "MRA_RECH") {
+      /* The target looks FORWARD only: N+1, N+2, N+3. The current period's
+       * own bill has already been paid, so saving for it would be pointless. */
       const hm = run.pre.hm.nominal;
-      const h0 = i < WF.NP ? hm[i] : 0;
       const h1 = i + 1 < WF.NP ? hm[i + 1] : 0;
       const h2 = i + 2 < WF.NP ? hm[i + 2] : 0;
+      const h3 = i + 3 < WF.NP ? hm[i + 3] : 0;
       const bits = [
-        pct(prm.MRA_Coef_N) + " of this year's maintenance bill (<b>" +
-          M(h0) + "</b>)",
-        pct(prm.MRA_Coef_N1) + " of next year's (<b>" + M(h1) + "</b>)",
-        pct(prm.MRA_Coef_N2) + " of the following year's (<b>" + M(h2) + "</b>)"
+        pct(prm.MRA_Coef_N) + " of next year's maintenance bill (<b>" +
+          M(h1) + "</b>)",
+        pct(prm.MRA_Coef_N1) + " of the year after (<b>" + M(h2) + "</b>)",
+        pct(prm.MRA_Coef_N2) + " of the year after that (<b>" + M(h3) + "</b>)"
       ];
-      let s = "<em>Period " + p.period + ":</em> the target is " +
+      let s = "<em>Period " + p.period + ":</em> the reserve funds the " +
+        "maintenance still to come, so the target is " +
         bits.join(" + ") + " = <b>" + M(p.mraTarget) + "</b>.";
-      if (i + 2 >= WF.NP) {
+      if (i + 1 < WF.NP && h1 > run.pre.hm.nominal[i] * 1.5) {
+        s += " Next year carries a maintenance peak, which is why the target " +
+          "jumps this period — the cash has to be set aside <em>before</em> " +
+          "the bill arrives.";
+      }
+      if (i + 3 >= WF.NP) {
         s += " Periods beyond the end of the model count as zero, which is " +
           "why the target falls away here.";
       }

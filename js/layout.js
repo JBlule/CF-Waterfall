@@ -57,7 +57,15 @@ const DEBT_SUB_GEOM = { x: 162, w: 316, h: 64 };
 const EDGE_ROUTES = {
   "MRA_RECH->MRA":      { style: "rightMargin", lane: 872 },
   "DSRA_RECH->DSRA":    { style: "rightMargin", lane: 890 },
-  "TREAS_EOP->TREAS_BOP": { style: "rightMargin", lane: 878 }
+  "TREAS_EOP->TREAS_BOP": { style: "rightMargin", lane: 878 },
+
+  /* The two outputs of the gate. Drawn as a fork -- straight down out of
+   * the gate, then across, then down into the target -- so the split reads
+   * as a switch throwing cash one way or the other. The generic router sent
+   * these sideways, straight underneath the neighbouring compartments,
+   * which is what made the flow impossible to follow. */
+  "LOCKUP->DISTRIB":   { style: "fork" },
+  "LOCKUP->TREAS_EOP": { style: "fork" }
 };
 
 /* ------------------------------------------------------------------

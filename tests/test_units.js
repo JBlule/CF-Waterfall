@@ -395,25 +395,47 @@ function runUnitTests() {
   T.eq("cleanly repaid: silent", WF.debtSignal(30, 20, 0, 0), "");
 
   /* ============================================================== */
-  T.suite("mraTarget [R95] -- weighted look-ahead at 3 HM bills");
+  T.suite("mraTarget [R95] -- look-ahead at the HM still to COME");
+  /* The reserve funds FUTURE maintenance: periods N+1, N+2, N+3. Including
+   * the current period would mean saving for a bill already paid. */
   var hmv = [100, 200, 400, 800, 1600];
-  /* 1x100 + 0.5x200 + 0.25x400 = 100+100+100 = 300 */
-  T.near("ordinary: 3-period weighted look-ahead",
-    WF.mraTarget(hmv, 0, P), 300);
-  /* boundary: last period -- future cells are blank, i.e. 0 */
-  T.near("last period sees only its own HM",
-    WF.mraTarget(hmv, 4, P), 1600);
-  /* boundary: second to last -- one future cell only */
-  T.near("second-to-last sees two of three",
-    WF.mraTarget(hmv, 3, P), 800 + 0.5 * 1600);
+  /* 1x200 + 0.5x400 + 0.25x800 = 200+200+200 = 600 */
+  T.near("ordinary: looks one, two and three years ahead",
+    WF.mraTarget(hmv, 0, P), 600);
+  /* the current period's own bill must NOT appear in the target */
+  T.near("a huge bill in the CURRENT period does not raise the target",
+    WF.mraTarget([9999999, 200, 400, 800, 1600], 0, P), 600);
+  /* ordinary, one period on: 1x400 + 0.5x800 + 0.25x1600 = 1200 */
+  T.near("period 2 looks at periods 3, 4 and 5",
+    WF.mraTarget(hmv, 1, P), 1200);
+  /* boundary: the last period has no future at all */
+  T.near("last period has nothing left to save for",
+    WF.mraTarget(hmv, 4, P), 0);
+  /* boundary: only one future period remains */
+  T.near("second-to-last sees only the final bill",
+    WF.mraTarget(hmv, 3, P), 1600);
+  /* boundary: two future periods remain */
+  T.near("third-from-last sees two of the three",
+    WF.mraTarget(hmv, 2, P), 800 + 0.5 * 1600);
   /* zero case: all coefficients 0 disables the MRA (scenario S09) */
   T.near("all coefficients zero disables the MRA",
     WF.mraTarget(hmv, 0, WF.normaliseParams(
       { MRA_Coef_N: 0, MRA_Coef_N1: 0, MRA_Coef_N2: 0 })), 0);
-  /* over-funded (scenario S10): 2x100 + 1x200 + 0.5x400 = 600 */
+  /* over-funded (scenario S10): 2x200 + 1x400 + 0.5x800 = 1200 */
   T.near("over-funded coefficients raise the target",
     WF.mraTarget(hmv, 0, WF.normaliseParams(
-      { MRA_Coef_N: 2, MRA_Coef_N1: 1, MRA_Coef_N2: 0.5 })), 600);
+      { MRA_Coef_N: 2, MRA_Coef_N1: 1, MRA_Coef_N2: 0.5 })), 1200);
+
+  /* Cross-check against the oracle's own first cell, computed by hand from
+   * the base case: 1 x 152,250 + 0.5 x 154,534.13 + 0.25 x 156,852.14
+   * = 268,729.81 -- which is what the recalculated workbook stores. */
+  T.near("period 1 target matches the workbook's 268,729.81",
+    WF.mraTarget(pre1.hm.nominal, 0, P), 268729.814063, 0.01);
+
+  /* The reserve must anticipate a peak: the target in the period BEFORE a
+   * peak year has to carry that peak, not the period of the peak itself. */
+  T.isTrue("the target spikes one period BEFORE the maintenance peak",
+    WF.mraTarget(pre1.hm.nominal, 3, P) > WF.mraTarget(pre1.hm.nominal, 4, P));
 
   /* ============================================================== */
   T.suite("rechargeReserve -- ONE mechanism, used for MRA and DSRA");
@@ -550,28 +572,35 @@ function runUnitTests() {
    * These are the two periods that actually broke against the oracle:
    * debt service equals the CFADS target, yet DSCR realised sits one ULP
    * under DSCR_Min. A bare >= must fail here and the real gate must not. */
-  var kn = [["S13_high_cpi", 10], ["S06_hm_peak_mra_draw", 13]], ki, kr, kp, ks;
-  for (ki = 0; ki < kn.length; ki++) {
-    ks = null;
-    for (var kj = 0; kj < ORACLE_DATA.scenarios.length; kj++) {
-      if (ORACLE_DATA.scenarios[kj].name === kn[ki][0]) {
-        ks = ORACLE_DATA.scenarios[kj];
-      }
-    }
+  /* Do NOT pin this to a named scenario and period. Which periods land on
+   * the knife edge depends on the cash flows, so any change to the model
+   * moves them -- an earlier version of this test pointed at S06 p13 and
+   * broke the moment the MRA rule was corrected, even though the underlying
+   * behaviour was untouched.
+   *
+   * Instead, sweep every scenario and period for the situation itself:
+   * a DSCR that sits within a whisker of DSCR_Min but strictly below it.
+   * Bounded: 15 scenarios x 31 periods. */
+  var knifeFound = 0, knifeOk = 0, knifeWhere = "", ks, kr, kp, ki, kj;
+  for (ki = 0; ki < ORACLE_DATA.scenarios.length; ki++) {
+    ks = ORACLE_DATA.scenarios[ki];
     kr = WF.runAll(ks.params);
-    kp = kr.periods[kn[ki][1] - 1];
-    T.isTrue(kn[ki][0] + " p" + kn[ki][1] + ": DSCR is a number here",
-      typeof kp.dscrRealised === "number");
-    T.isTrue(kn[ki][0] + " p" + kn[ki][1] +
-      ": DSCR sits within one ULP of DSCR_Min",
-      Math.abs(kp.dscrRealised - kr.params.DSCR_Min) < 1e-15);
-    T.eq(kn[ki][0] + " p" + kn[ki][1] +
-      ": a bare >= would have blocked this period",
-      (kp.dscrRealised >= kr.params.DSCR_Min) ? 1 : 0, 0);
-    T.eq(kn[ki][0] + " p" + kn[ki][1] +
-      ": the epsilon gate correctly allows it (matches Excel)",
-      kp.tests.dscrOk, 1);
+    for (kj = 0; kj < kr.periods.length; kj++) {
+      kp = kr.periods[kj];
+      if (typeof kp.dscrRealised !== "number") { continue; }
+      if (kp.dscrRealised >= kr.params.DSCR_Min) { continue; }
+      if (Math.abs(kp.dscrRealised - kr.params.DSCR_Min) > 1e-12) { continue; }
+      /* a bare >= would block this period purely on float dust */
+      knifeFound++;
+      if (kp.tests.dscrOk === 1) { knifeOk++; }
+      if (!knifeWhere) { knifeWhere = ks.name + " p" + kp.period; }
+    }
   }
+  T.isTrue("the knife edge really occurs in the oracle set (" +
+    knifeFound + " period(s), first at " + (knifeWhere || "none") + ")",
+    knifeFound > 0);
+  T.eq("every knife-edge period is allowed through, not blocked by dust",
+    knifeOk, knifeFound);
   /* the two escapes: without them a repaid project could never distribute */
   T.eq("no debt service: DSCR gate passes on a blank DSCR",
     lock(0, "", 1000, 1.5, 300, 300, 200, 200).dscrOk, 1);

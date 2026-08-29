@@ -334,6 +334,10 @@ input[type="range"]:disabled::-webkit-slider-thumb { border-color: var(--ink-3);
 .sub.is-short .sub-glass { stroke: var(--alert); stroke-width: 1.8; }
 .sub.is-served .sub-liquid { fill: var(--ok); opacity: .5; }
 .sub.is-idle .sub-glass { stroke-dasharray: 3 3; opacity: .55; }
+/* interest being deferred, or arrears being carried forward */
+.sub.is-accruing .sub-sub { fill: var(--alert); font-weight: 700; }
+.sub.is-accruing .sub-glass { stroke: var(--alert); stroke-width: 1.6;
+                              stroke-dasharray: none; opacity: 1; }
 
 .sub-label { font: 600 10px/1 var(--sans); fill: var(--ink-2);
              pointer-events: none; }
@@ -609,6 +613,29 @@ input[type="range"]:disabled::-webkit-slider-thumb { border-color: var(--ink-3);
   padding-bottom: 2px;
 }
 .insp-more:hover { color: var(--ink); border-color: var(--ink); }
+
+/* ---------------------------------------------------- site footer */
+
+.site-footer {
+  margin-top: 2rem;            /* breathing room above the badge */
+  padding: 1.4rem 1rem 1.6rem;
+  border-top: 1px solid var(--rule);
+  text-align: center;          /* centred, per the Studio's instructions */
+}
+.site-footer img { display: inline-block; vertical-align: middle; }
+.site-footer a { display: inline-block; line-height: 0; }
+.site-footer p {
+  margin: .7rem 0 0;
+  font: italic 11.5px/1.5 var(--serif); color: var(--ink-3);
+}
+
+/* On the cascade page the footer is a fixed band under the scrolling
+   canvas, so the badge stays visible without hunting for it. */
+.stage > .site-footer {
+  flex: 0 0 auto; margin-top: 0;
+  padding: .8rem 1rem .9rem;
+  background: var(--paper-2);
+}
 
 /* --------------------------------------------------------- anomaly */
 
