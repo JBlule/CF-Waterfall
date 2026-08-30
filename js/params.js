@@ -43,7 +43,7 @@ const PARAM_GROUPS = [
       /* "Auto (PV)" meant nothing to anyone who did not already know what a
        * present value was. Say what it actually does instead. */
       { id: "Sizing_Mode", label: "Debt sizing", kind: "toggle",
-        off: "Set the amount manually", on: "Size to the cash flow",
+        off: "Size to the cash flow", on: "Set the amount manually", 
         note: "“Size to the cash flow” advances as much as the project's " +
           "future CFADS can service at the target cover ratio, and reports " +
           "the result below. Switch to “Set the amount manually” to fix any " +
