@@ -410,6 +410,20 @@ class Cascade {
     }
 
     /* --- debt sub-compartments ----------------------------------- */
+    /* Deferred interest is a BALANCE that persists across periods, so its
+     * tank is scaled against the largest arrears the run ever holds: it
+     * fills in the year interest is deferred and drains when the arrears are
+     * repaid. Interest and principal are per-period flows, filled paid/due. */
+    const capDef = run._capDef || (run._capDef = (function () {
+      var m = 1, q, i;
+      for (i = 0; i < run.periods.length; i++) {
+        q = run.periods[i];
+        if (q.debt.deferredBoP > m) { m = q.debt.deferredBoP; }
+        if (q.debt.deferredEoP > m) { m = q.debt.deferredEoP; }
+      }
+      return m;
+    })());
+
     for (const id in this.subs) {
       const s = this.subs[id];
       const { paid, due } = stagedSub(id, p, stage);
@@ -417,13 +431,19 @@ class Cascade {
 
       /* Interest and principal are per-period OBLIGATIONS, so their headline
        * figure is what was paid. Deferred interest is the only one of the
-       * three that carries a BALANCE across periods, so its headline is what
-       * the project still owes at the end of the period. Showing what it
-       * repaid would print €0 on a compartment visibly filling with arrears. */
+       * three that carries a BALANCE across periods: its headline AND its
+       * liquid level are that balance, so the number and the tank agree --
+       * both rise in the peak year and both fall when the arrears clear.
+       * Before the debt stage (while stepping) it holds the opening arrears;
+       * from the debt stage on, the closing balance. */
       const arrears = (id === "DEBT_DEF" && subReached) ? p.debt.deferredEoP : 0;
-      const headline = (id === "DEBT_DEF") ? arrears : paid;
+      const defBalance = (id === "DEBT_DEF")
+        ? (subReached ? p.debt.deferredEoP : p.debt.deferredBoP) : 0;
+      const headline = (id === "DEBT_DEF") ? defBalance : paid;
 
-      const frac = due > 0.005 ? Math.max(0, Math.min(1, paid / due)) : 0;
+      const frac = (id === "DEBT_DEF")
+        ? Math.max(0, Math.min(1, defBalance / capDef))
+        : (due > 0.005 ? Math.max(0, Math.min(1, paid / due)) : 0);
       const hpx = frac * s.h;
       s.liquid.setAttribute("y", s.y + s.h - hpx);
       s.liquid.setAttribute("height", hpx);
@@ -522,8 +542,8 @@ class Cascade {
       "MRA_RECH->MRA":        p.mra.recharge,
       "CASH_RES->DSRA_RECH":  p.dsra.recharge,
       "DSRA_RECH->DSRA":      p.dsra.recharge,
-      "MRA->CASH_EQ":         p.mra.release,
-      "DSRA->CASH_EQ":        p.dsra.release,
+      "MRA->CASH_AHM":        p.mra.release,
+      "DSRA->CASH_AHM":       p.dsra.release,
       "CASH_RES->CASH_EQ":    p.cashForDsra - p.dsra.recharge,
       /* The gate is a set of points, not a tank: all the cash arrives at it,
        * and it is switched either to the shareholders or into treasury.
@@ -551,7 +571,9 @@ class Cascade {
   highlightStage(stage) {
     const STAGE_NODES = {
       carry:   ["TREAS_BOP", "TOLL", "OPEX", "CURCASH"],
-      hm:      ["HM", "HM_PAY", "MRA", "CASH_AHM"],
+      /* both reserves release their surplus into cash-after-HM at this stage,
+       * so both light up here (as well as at the stages where they are drawn) */
+      hm:      ["HM", "HM_PAY", "MRA", "DSRA", "CASH_AHM"],
       debt:    ["DEBT", "DEBT_DEF", "DEBT_INT", "DEBT_PRIN", "DSRA"],
       resid:   ["CASH_RES"],
       reserve: ["MRA_RECH", "DSRA_RECH", "MRA", "DSRA", "CASH_EQ"],

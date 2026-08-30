@@ -327,14 +327,14 @@
   },
   {
    "from": "MRA",
-   "to": "CASH_EQ",
-   "flow": "release surplus above target",
+   "to": "CASH_AHM",
+   "flow": "release surplus, ahead of debt service",
    "type": "release"
   },
   {
    "from": "DSRA",
-   "to": "CASH_EQ",
-   "flow": "release surplus above target",
+   "to": "CASH_AHM",
+   "flow": "release surplus, ahead of debt service",
    "type": "release"
   },
   {

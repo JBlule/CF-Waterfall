@@ -82,19 +82,21 @@ Two conventions worth knowing:
 ## Engine status
 
 ```
-assertions      : 309 passed / 0 failed
+assertions      : 308 passed / 0 failed
 oracle scenarios: 15 / 15 reproduced (31,620 cells compared)
-worst divergence: 8.009e-8   (tolerance 0.01 absolute)
-branch coverage : 44 / 45
+worst divergence: 1.192e-7   (tolerance 0.01 absolute)
+branch coverage : 42 / 45
 ```
 
-All 15 scenarios in `oracle_scenarios.json` reproduce the recalculated Excel
-across 68 rows × 31 periods. The worst divergence anywhere is 8e-8 on euro
-amounts of order 1e7 — relative 1e-15, i.e. floating-point noise from
-LibreOffice's arithmetic snapping. No cell needed a tolerance concession.
+All 15 scenarios in `oracle_scenarios.json` reproduce the **corrected** Excel
+across 68 rows × 31 periods. The worst divergence anywhere is ~1e-7 on euro
+amounts of order 1e7 — floating-point noise plus the fixed-point convergence
+residual from correction #3 (see `ENGINE_NOTES.md` §0). No cell needed a
+tolerance concession.
 
-The one uncovered branch is `payHM/negCash` (current cash going negative); no
-oracle scenario produces it, so it is covered by unit tests only.
+Three branches are unexercised by the oracle (`payHM/negCash`,
+`serviceDebt/principalStarved`, `distribute/negTreasury`); no scenario produces
+them, so they are covered by unit tests only.
 
 ## Scope status
 
@@ -136,11 +138,13 @@ oracle scenario produces it, so it is covered by unit tests only.
 reintroduce randomness. There is no random toggle. The same inputs always
 give the same result, and a test asserts two runs are identical.
 
-There is no fixed-point iteration anywhere: every period is a direct forward
-computation from the previous period's five carried balances. No function in
-the engine contains an unbounded loop, `Run` is a bounded interval that stops
-itself at period 31, and `tests/test_graph.js` proves the intra-period graph
-is acyclic once each reservoir is split into its BoP and EoP roles.
+The model is deterministic but no longer a single forward pass: correction #3
+(see `ENGINE_NOTES.md` §0) makes each period circular, so `runAll` solves the
+whole grid with a bounded, damped fixed-point loop that converges to a residual
+below 1e-9. `Run` is a bounded interval that stops itself at period 31, and
+`tests/test_graph.js` proves the intra-period **flow** graph is acyclic once
+each reservoir is split into its BoP and EoP roles — the iteration lives in the
+reserve *targets*, not the flow.
 
 NaN and Infinity are never swallowed: `checkFinite` walks the finished grid
 and the app shows the offending Feuil1 row and period in a red bar, with the
@@ -160,8 +164,9 @@ MIT — see `LICENSE`.
 
 ## Read this before trusting a number
 
-`ENGINE_NOTES.md` documents eight things the workbook does that its prose
-description does not mention, with the formula evidence — including the
-`HM_Peak_Cycle` deviation we made deliberately, the year-header rows that
-masquerade as CPI, the treasury balance that is *not* floored at zero, and
-the one-ULP floating-point knife edge in the DSCR lock-up gate.
+`ENGINE_NOTES.md` documents the workbook behaviours its prose description does
+not mention, plus the three deliberate model corrections (§0), with the formula
+evidence — including the cash-basis debt sculpting (#3) and its fixed-point
+iteration, the `HM_Peak_Cycle` deviation, the year-header rows that masquerade
+as CPI, the treasury balance that is *not* floored at zero, and the one-ULP
+floating-point knife edge in the DSCR lock-up gate.

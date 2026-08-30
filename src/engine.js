@@ -9,9 +9,11 @@
  * [R###] so every line can be traced back. oracle_scenarios.json is the
  * external check that this reproduces the real model.
  *
- * There is NO fixed-point iteration in this model. Every period is a
- * direct forward computation from the previous period's balances, so no
- * function here contains an unbounded loop.
+ * CORRECTION #3 makes each period circular: the debt is sculpted from the
+ * cash that already contains the DSRA surplus, and that surplus depends back
+ * on the sculpted debt. The whole grid is therefore solved by a damped
+ * fixed-point loop in runAll -- mirroring the reference workbook's iterative
+ * calculation. Every other function stays a pure forward computation.
  *
  * STYLE: deliberately ES5-safe (var, plain for loops, no Array.prototype
  * .map/.forEach, no Object.keys). This exact file runs unmodified under
@@ -429,8 +431,8 @@ var WF = (function () {
   /* Ratio-comparison epsilon for the DSCR/LLCR gates.
    *
    * WHY THIS EXISTS -- measured, not assumed. In a sculpted period the debt
-   * service comes out equal to CFADS/DSCR, so DSCR realised is
-   *      CFADS / (CFADS / DSCR)
+   * service comes out equal to the cash basis / DSCR (Feuil1!82 / DSCR under
+   * CORRECTION #3), so DSCR realised is  basis / (basis / DSCR)
    * and that division ROUND-TRIP is not exact in IEEE 754: it lands one ULP
    * low. Verified on scenario S13 period 10, where debt service equals the
    * CFADS target to the bit and DSCR realised is still 1.2 - 2.220446e-16.
@@ -502,7 +504,7 @@ var WF = (function () {
   /* One period. `state` is the only thing carried across periods:
    * four balances, nothing else. Returns the period's figures plus a
    * `stages` map the UI consumes for Step-through. */
-  function runPeriod(period, state, pre, params) {
+  function runPeriod(period, state, pre, params, pinBasis, sculptTargetVec) {
     var idx = period - 1;
 
     /* -- stage 1: carry forward ------------------------------------- */
@@ -514,30 +516,71 @@ var WF = (function () {
     var mraBoP = state.mra;                                          /* R96 */
     var hm = payHM(cash, pre.hm.nominal[idx], mraBoP);        /* R116-R119 */
 
-    /* -- stage 3: debt service ------------------------------------- */
+    /* CORRECTION #3 (deliberate deviation). The cash that services the debt is
+     * "cash after HM" PLUS both reserve surpluses (MRA and DSRA), and the
+     * amortisation is sculpted from THAT cash / DSCR, not from CFADS. The DSRA
+     * surplus depends on this period's closing debt, which depends back on the
+     * cash basis, so the period is genuinely circular; runAll solves the whole
+     * grid by a damped fixed point. Within one pass the basis (Feuil1!82) is
+     * PINNED to `pinBasis` and we report the value it implies.
+     *
+     * The MRA target is a forward look-ahead at HM to come, independent of the
+     * debt, so its release is known outright here. */
+    var mraTgt = mraTarget(pre.hm.nominal, idx, params);              /* R95 */
+    var mraAfterDraw = mraBoP - hm.hmFromMra;
+    var mraRelease = Math.max(0, mraAfterDraw - mraTgt);              /* R100 */
+
+    var B = pinBasis;                                                 /* R82 */
+
+    /* -- stage 3: debt service, sculpted from B/DSCR --------------- */
     var dsraBoP = state.dsra;                                        /* R105 */
     var debt = serviceDebt(period, state.debt, state.deferred,
-      hm.cashAfterHm, dsraBoP, pre.cfadsTarget[idx], params);   /* R79-R91 */
-    var dscrReal = dscrRealised(pre.cfads[idx], debt.debtService);    /* R92 */
+      B, dsraBoP, sculptTargetVec[idx], params);                 /* R79-R91 */
+    var dscrReal = dscrRealised(B, debt.debtService);                /* R92 */
     var dSignal = debtSignal(period, params.Debt_Duration,
       debt.debtEoP, debt.deferredEoP);                               /* R93 */
 
+    /* the DSRA surplus release, once the closing debt (its target) is known.
+     * The target looks one period ahead, sculpting period+1 from its pinned
+     * basis. A draw and a release never coincide, so B stays well-defined. */
+    var dsraTgt = dsraTarget(period, debt.debtEoP, sculptTargetVec,
+      params);                                                       /* R103 */
+    var dsraAfterDraw = dsraBoP - debt.dsraDraw;
+    var dsraRelease = Math.max(0, dsraAfterDraw - dsraTgt);          /* R108 */
+
+    /* the basis THIS pass implies; runAll relaxes pinBasis toward it. */
+    var impliedBasis = hm.cashAfterHm + mraRelease + dsraRelease;
+
     /* -- stage 4: residual cash ------------------------------------ */
-    var cashForReserves = hm.cashAfterHm - debt.debtService;          /* R120 */
+    /* Only the cash actually taken from operations pays down the debt; the part
+     * met by a DSRA draw came from the reserve, not from cash, so it is added
+     * back. (The DSRA surplus is already inside B, so R120 no longer adds it.) */
+    var cashForReserves = B - (debt.debtService - debt.dsraDraw);     /* R120 */
 
     /* -- stage 5: reserves ----------------------------------------- */
-    var mraTgt = mraTarget(pre.hm.nominal, idx, params);              /* R95 */
-    var mra = rechargeReserve(cashForReserves, mraBoP, hm.hmFromMra,
-      mraTgt);                                                 /* R99-R101 */
+    /* Both reserves already released above; here each only tops back up toward
+     * target when it is below it (release and recharge never coincide). */
+    var mraAfterRelease = mraAfterDraw - mraRelease;
+    var mraRecharge = Math.max(0, Math.min(
+      Math.max(0, cashForReserves), mraTgt - mraAfterRelease));
+    var mra = {
+      recharge: mraRecharge,
+      release: mraRelease,
+      eop: mraAfterRelease + mraRecharge
+    };
 
     var cashForDsra = cashForReserves - mra.recharge;                 /* R121 */
-    var dsraTgt = dsraTarget(period, debt.debtEoP, pre.cfadsTarget,
-      params);                                                       /* R103 */
-    var dsra = rechargeReserve(cashForDsra, dsraBoP, debt.dsraDraw,
-      dsraTgt);                                              /* R107-R110 */
+    var dsraAfterRelease = dsraAfterDraw - dsraRelease;
+    var dsraRecharge = Math.max(0, Math.min(
+      Math.max(0, cashForDsra), dsraTgt - dsraAfterRelease));
+    var dsra = {
+      recharge: dsraRecharge,
+      release: dsraRelease,
+      eop: dsraAfterRelease + dsraRecharge
+    };
 
-    /* R122: residual after recharges, plus both surplus releases. */
-    var cashEq = cashForDsra - dsra.recharge + mra.release + dsra.release;
+    /* R122: residual after recharges. Both surpluses are already upstream. */
+    var cashEq = cashForDsra - dsra.recharge;
 
     /* -- stage 6: tests and distribution --------------------------- */
     var llcrVal = llcr(period, treasuryBoP, state.debt, pre.cfads, params);
@@ -556,6 +599,10 @@ var WF = (function () {
       debt: debt,
       dscrRealised: dscrReal,
       debtSignal: dSignal,
+      /* the debt basis Feuil1!82 = cash after HM + both reserve surpluses.
+       * What the CASH_AHM compartment displays and what sculpts the debt. */
+      cashAvailForDebt: B,
+      impliedBasis: impliedBasis,
       cashForReserves: cashForReserves,
       mraBoP: mraBoP, mraTarget: mraTgt, mra: mra,
       cashForDsra: cashForDsra,
@@ -687,24 +734,50 @@ var WF = (function () {
     return bad;
   }
 
-  /* Run the whole model. Exactly NP forward periods -- no convergence loop,
-   * no early exit, no iteration to a fixed point. */
+  /* Run the whole model. CORRECTION #3 makes each period circular (the debt
+   * sculpt reads Feuil1!82, which contains the DSRA surplus, which depends on
+   * the sculpted debt), so this is solved by a damped fixed point over the
+   * per-period basis vector `basis` (row 82): pin it, run the forward pass,
+   * relax toward the value the pass implies, repeat to convergence. The
+   * reference workbook resolves the same circularity with iterative calc.
+   *
+   * DAMP 0.5 matches the workbook's pin-and-relax scheme and tames the
+   * limit-cycle that a raw Gauss-Seidel sweep falls into on some scenarios. */
   function runAll(rawParams) {
     var params = normaliseParams(rawParams);
     var pre = precompute(params);
-    var state = {
-      treasury: 0,   /* R140 period 1 */
-      mra: 0,        /* R96  period 1 */
-      dsra: 0,       /* R105 period 1 */
-      debt: pre.principalUsed, /* R79 period 1 = Principal_Used */
-      deferred: 0    /* R81  period 1 */
-    };
-    var periods = [], p, i;
 
-    for (i = 1; i <= NP; i++) {
-      p = runPeriod(i, state, pre, params);
-      periods.push(p);
-      state = p.next;
+    var DAMP = 0.5, TOL = 1e-9, MAXIT = 5000;
+    var basis = [], sculptTargetVec = [], i, d;
+    for (i = 0; i < NP; i++) { basis.push(pre.cfads[i]); } /* initial guess */
+
+    var periods = [], state, p, implied = [], maxDiff = 0, iter, converged = false;
+    for (iter = 0; iter < MAXIT; iter++) {
+      for (i = 0; i < NP; i++) { sculptTargetVec[i] = basis[i] / params.DSCR; }
+      state = {
+        treasury: 0,   /* R140 period 1 */
+        mra: 0,        /* R96  period 1 */
+        dsra: 0,       /* R105 period 1 */
+        debt: pre.principalUsed, /* R79 period 1 = Principal_Used */
+        deferred: 0    /* R81  period 1 */
+      };
+      periods = [];
+      implied = [];
+      for (i = 1; i <= NP; i++) {
+        p = runPeriod(i, state, pre, params, basis[i - 1], sculptTargetVec);
+        periods.push(p);
+        implied.push(p.impliedBasis);
+        state = p.next;
+      }
+      maxDiff = 0;
+      for (i = 0; i < NP; i++) {
+        d = Math.abs(implied[i] - basis[i]);
+        if (d > maxDiff) { maxDiff = d; }
+      }
+      if (maxDiff < TOL) { converged = true; break; }
+      for (i = 0; i < NP; i++) {
+        basis[i] = basis[i] + DAMP * (implied[i] - basis[i]);
+      }
     }
 
     var grid = buildGrid(periods, pre, params);
@@ -714,6 +787,7 @@ var WF = (function () {
       periods: periods,
       grid: grid,
       numPeriods: NP,
+      convergence: { iterations: iter, residual: maxDiff, converged: converged },
       /* Non-empty means something went wrong and the UI must show it. */
       anomalies: checkFinite(grid)
     };

@@ -10,6 +10,52 @@ rendered sheet, so every claim below is checkable against `Feuil1`.
 
 ---
 
+## 0. Deliberate model corrections (#1–#3)
+
+Three changes were made to the reference model at the user's request, as
+"large-version" modelling choices. The oracle was **regenerated from the
+corrected workbook** (`projet_vibecoding_5_corrige_FULL_2.xlsx`), so
+`oracle_scenarios.json` now encodes the *corrected* model and the engine
+reproduces it exactly. The original workbook (`projet_vibe-coding_5.xlsx`) is
+kept for reference only.
+
+**#1 — Reserve surpluses cascade instead of going straight to equity.** A
+reserve above its target is in surplus. The workbook paid both surpluses (MRA
+`R100`, DSRA `R108`) straight to equity, even in a period where interest was
+being deferred. Instead they are released back into the waterfall at "cash
+after HM", ahead of the debt, and cascade from there (debt → reserve
+recharges → equity).
+
+**#2 — `R120` no longer double-counts the DSRA draw.** *Cash available for
+reserve accounts* subtracted the whole debt service even though part of it was
+funded by a DSRA draw (reserve money, not cash). Corrected to add the draw
+back: `R120 = N82 − N91 + N83`.
+
+**#3 — Debt sculpted from available cash; DSRA surplus in the basis; DSCR on
+the same basis.** The amortisation is sculpted from the cash actually
+available after HM plus **both** reserve surpluses, divided by the DSCR target
+— not from CFADS. DSCR realised uses the same numerator.
+
+| Feuil1 row | Before #3 | After #3 |
+|---|---|---|
+| 82 (cash for debt)     | `=N118+N100`            | `=N118+N100+N108`        |
+| 86 (principal sculpt)  | `…MIN(N79,N73−N80)`     | `…MIN(N79,N82/$L$70−N80)` |
+| 92 (DSCR realised)     | `=IF(N91=0,"",N72/N91)` | `=IF(N91=0,"",N82/N91)`  |
+| 120 (cash for reserves)| `=N82+N108−N91+N83`     | `=N82−N91+N83`           |
+
+CFADS (`R72`), debt **sizing** (`R76/R77`) and **LLCR** (`R123`) are left on the
+operating-cash-flow basis — the standard project-finance definitions.
+
+**Circularity.** Under #3 the DSRA surplus inside `R82` depends on the sculpted
+debt, whose reserve target `R103` looks one period ahead, so the whole grid is
+a single fixed point spanning periods. The workbook resolves it with iterative
+calculation; the engine mirrors that with a damped (0.5) pin-and-relax loop on
+the `R82` basis vector in `runAll`, converging to a residual < 1e-9 (worst
+oracle divergence 1.2e-7). This replaces the old single-forward-pass design —
+see §8.
+
+---
+
 ## 1. `HM_Peak_Cycle` — deliberate deviation from the workbook
 
 **In the workbook it is not the cycle length.** `Feuil1!46` (the peak counter)
@@ -117,13 +163,13 @@ not oracle-compared.
 
 ## 7. The DSCR/LLCR lock-up gates need a comparison epsilon
 
-In a sculpted period the debt service comes out equal to `CFADS/DSCR`, so
-DSCR realised is `CFADS / (CFADS / DSCR)`. That division **round-trip is not
-exact** in IEEE 754 — it lands one ULP low. `DSCR_Min` typically sits at
-exactly that same value, so a bare `>=` makes the lock-up outcome hinge on a
-single ULP.
+In a sculpted period the debt service comes out equal to the cash basis
+`Feuil1!82 / DSCR` (correction #3), so DSCR realised is `basis / (basis /
+DSCR)`. That division **round-trip is not exact** in IEEE 754 — it lands one
+ULP low. `DSCR_Min` typically sits at exactly that same value, so a bare `>=`
+makes the lock-up outcome hinge on a single ULP.
 
-Measured on S13 period 10: debt service equals the CFADS target *to the bit*,
+Measured on S13 period 10: debt service equals the sculpt target *to the bit*,
 and DSCR realised is still `1.2 - 2.220446e-16`. S06 period 13 shows the same
 one-ULP gap. LibreOffice hides this by snapping near-clean arithmetic
 results, which is why the oracle stores a clean `1.2` and reads the gate as
@@ -147,13 +193,19 @@ DSRA -> DEBT   -> CASH_RES -> DSRA_RECH -> DSRA
 because it collapses each reservoir's two roles into one node: a reservoir is
 **read** at BoP (to fund a draw) and **written** at EoP (recharge/release).
 
-The invariant the engine depends on is that splitting each reservoir into
-BoP (source) and EoP (sink) makes one period a DAG. `test_graph.js` asserts
-exactly that, and also asserts the raw cycles are present, so the test records
-the real structure of the file rather than papering over it. This is why the
-model needs no fixed-point iteration and why one forward pass is valid.
+The invariant is that splitting each reservoir into BoP (source) and EoP (sink)
+makes one period's **flow** graph a DAG. `test_graph.js` asserts exactly that,
+and also asserts the raw cycles are present, so the test records the real
+structure of the file rather than papering over it.
 
-The renderer will need the same BoP/EoP split when it draws the reservoirs.
+Note this is a statement about *flow*, not *computation*. Correction #3 (§0)
+introduces a genuine computational cycle — the DSRA surplus that flows into
+`R82` depends on the sculpted debt, via the reserve **target** `R103`, not via
+any flow edge — so the engine now iterates the whole grid to a fixed point.
+The flow graph stays a DAG under the BoP/EoP split, which is why `test_graph.js`
+still holds; the iteration lives in `runAll`, not in the graph.
+
+The renderer needs the same BoP/EoP split when it draws the reservoirs.
 
 ---
 

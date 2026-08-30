@@ -85,7 +85,7 @@ const NODE_VALUE = {
   TREAS_BOP: (p) => p.treasuryBoP,
   CURCASH:   (p) => p.currentCash,
   HM_PAY:    (p) => p.hm.hmFromCash + p.hm.hmFromMra,
-  CASH_AHM:  (p) => p.hm.cashAfterHm,
+  CASH_AHM:  (p) => p.cashAvailForDebt,   /* cash after HM + both reserve releases */
   DEBT:      (p) => p.debt.debtService,
   MRA:       (p) => p.mra.eop,
   DSRA:      (p) => p.dsra.eop,
@@ -179,12 +179,18 @@ function stagedValue(id, p, run, stage) {
   }
   if (id === "MRA") {
     if (stage < 1) { return p.mraBoP; }
-    if (stage < 4) { return Math.max(0, p.mraBoP - p.hm.hmFromMra); }
+    /* at the HM stage the MRA is both drawn for HM and releases its surplus */
+    if (stage < 4) { return Math.max(0, p.mraBoP - p.hm.hmFromMra - p.mra.release); }
     return p.mra.eop;
   }
   if (id === "DSRA") {
-    if (stage < 2) { return p.dsraBoP; }
-    if (stage < 4) { return Math.max(0, p.dsraBoP - p.debt.dsraDraw); }
+    if (stage < 1) { return p.dsraBoP; }
+    /* the surplus release feeds cash-after-HM at the HM stage; the draw for
+     * debt comes later, at the debt stage (the two never coincide) */
+    if (stage < 2) { return Math.max(0, p.dsraBoP - p.dsra.release); }
+    if (stage < 4) {
+      return Math.max(0, p.dsraBoP - p.dsra.release - p.debt.dsraDraw);
+    }
     return p.dsra.eop;
   }
   /* the opening treasury is there from the start of the period */
