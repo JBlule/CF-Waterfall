@@ -180,9 +180,16 @@ class Cascade {
       if (!BOXES[edge.from] || !BOXES[edge.to]) { continue; }
 
       const key = edge.from + "->" + edge.to;
-      const d = pipePath(edge.from, edge.to, key);
-      const g = el("g", { class: "pipe pipe-" + edge.type,
-        "data-edge": key }, this.pipeLayer);
+      if (HIDDEN_EDGES.has(key)) { continue; }
+
+      /* A reversed edge is drawn tail-for-head. marker-end carries the
+       * arrowhead, so swapping the path's direction is all it takes to
+       * point the arrow at the compartment that consumes the cash. */
+      const rev = REVERSED_EDGES.has(key);
+      const d = rev ? pipePath(edge.to, edge.from, key)
+                    : pipePath(edge.from, edge.to, key);
+      const g = el("g", { class: "pipe pipe-" + edge.type +
+        (rev ? " is-reversed" : ""), "data-edge": key }, this.pipeLayer);
 
       /* a fat invisible path underneath makes thin pipes clickable */
       const hit = el("path", { d, class: "pipe-hit" }, g);
@@ -493,6 +500,10 @@ class Cascade {
     }
 
     /* --- pipes: amount labels, activity, flow animation ---------- */
+    /* Labels already placed this pass. Two pipes share the right-hand
+     * margin a few pixels apart, so their amounts have to dodge each other
+     * as well as the tanks. */
+    const placedLabels = [];
     for (const key in this.pipes) {
       const pipe = this.pipes[key];
       const amt = this._edgeAmount(pipe.edge, p, run);
@@ -508,18 +519,17 @@ class Cascade {
       pipe.g.classList.toggle("is-flowing", flowing);
 
       if (active) {
-        const mid = this._midpoint(pipe);
-        pipe.label.setAttribute("x", mid.x);
-        pipe.label.setAttribute("y", mid.y - 5);
-        pipe.label.setAttribute("text-anchor", "middle");
+        /* text first: the placement measures the rendered glyphs */
         pipe.label.textContent = money(amt);
+        this._placeLabel(pipe, placedLabels);
       } else {
         pipe.label.textContent = "";
       }
     }
 
     /* dim everything not in the current stage */
-    this.highlightStage(stepping ? WF.STAGES[stage].id : null);
+    this.highlightStage(stepping ? WF.STAGES[stage].id : null,
+                        stepping ? stage : null);
   }
 
   /* The euro amount travelling down a given pipe this period. Null means
@@ -528,13 +538,20 @@ class Cascade {
     const k = edge.from + "->" + edge.to;
     const map = {
       "TOLL->CURCASH":        run.pre.toll.nominal[p.period - 1],
-      "OPEX->CURCASH":        -run.pre.opex.nominal[p.period - 1],
+      /* Drawn in reverse (see REVERSED_EDGES): cash leaving the stage to
+       * settle the bill, so the figure is positive. */
+      "OPEX->CURCASH":        run.pre.opex.nominal[p.period - 1],
       "TREAS_BOP->CURCASH":   p.treasuryBoP,
-      "CURCASH->HM_PAY":      p.hm.hmFromCash,
-      "HM->HM_PAY":           p.hm.hmDue,
+      /* The WHOLE balance enters the maintenance stage, not just the part
+       * spent on maintenance -- that is what makes the stage balance:
+       * in (cash in hand + MRA draw) = out (charge paid + cash surviving). */
+      "CURCASH->HM_PAY":      p.currentCash,
+      /* Reversed, and it is what was actually PAID, not what fell due. In a
+       * period flagged HM UNPAID the two differ, and the gap against the
+       * "due" figure on the compartment is the shortfall. */
+      "HM->HM_PAY":           p.hm.hmFromCash + p.hm.hmFromMra,
       "MRA->HM_PAY":          p.hm.hmFromMra,
       "HM_PAY->CASH_AHM":     p.hm.cashAfterHm,
-      "CURCASH->CASH_AHM":    p.hm.cashAfterHm,
       "CASH_AHM->DEBT":       p.debt.debtService,
       "DSRA->DEBT":           p.debt.dsraDraw,
       "DEBT->CASH_RES":       p.cashForReserves,
@@ -556,19 +573,94 @@ class Cascade {
     return (k in map) ? map[k] : null;
   }
 
-  _midpoint(pipe) {
+  /* Where a pipe's amount goes.
+   *
+   * Centred on the midpoint, the text sat astride the pipe and the stroke
+   * ran straight through the digits -- worst on the spine, where every
+   * amount is on a vertical line. So the label is pushed clear of the pipe
+   * instead: BESIDE a vertical run, ABOVE a horizontal one.
+   *
+   * The side is chosen from the path's own direction at the sample point,
+   * not from the two box centres, so the curved reservoir pipes and the
+   * dog-legged gate and margin routes are all handled by the same rule.
+   *
+   * Preference order is: the midpoint on the favoured side, the midpoint on
+   * the other side, then the same two a little further along the pipe. The
+   * corridor between the residual-cash box and the two replenishment boxes
+   * is too narrow for a label at the midpoint, so sliding along the run is
+   * what keeps it off both. */
+  _placeLabel(pipe, placed) {
+    const GAP = 9;          /* clearance from the pipe's centre line */
+    const RISE = 3.5;       /* half a cap-height, to sit optically level */
+    const FRACTIONS = [0.5, 0.38, 0.62, 0.26, 0.74];
+
+    let first = null;
+    for (const f of FRACTIONS) {
+      const s = this._sampleAt(pipe, f);
+      const vertical = Math.abs(s.ty) >= Math.abs(s.tx);
+      const cands = vertical
+        ? [{ x: s.x + GAP, y: s.y + RISE, anchor: "start" },
+           { x: s.x - GAP, y: s.y + RISE, anchor: "end" }]
+        : [{ x: s.x, y: s.y - GAP, anchor: "middle" },
+           { x: s.x, y: s.y + GAP + 8, anchor: "middle" }];
+      if (!first) { first = cands[0]; }
+      for (const c of cands) {
+        this._applySpot(pipe.label, c);
+        const r = this._bboxFits(pipe.label, placed);
+        if (r) { placed.push(r); return; }
+      }
+    }
+    /* nowhere is clean; keep the preferred side at the midpoint. The label
+     * carries a paper-coloured halo, so it still reads over a tank edge. */
+    this._applySpot(pipe.label, first);
+    try { placed.push(pipe.label.getBBox()); } catch (e) { /* no layout */ }
+  }
+
+  _applySpot(node, spot) {
+    node.setAttribute("x", spot.x);
+    node.setAttribute("y", spot.y);
+    node.setAttribute("text-anchor", spot.anchor);
+  }
+
+  /* Measured against what the browser actually drew, not an estimate of it:
+   * the glyph box of a 10px mono string is not something to guess at, and
+   * guessing left the gate's label clipping the bottom of its own tank.
+   *
+   * Returns the accepted rectangle, or null if the placement is no good. */
+  _bboxFits(node, placed) {
+    let r;
+    try { r = node.getBBox(); } catch (e) { return { x: 0, y: 0, width: 0, height: 0 }; }
+    if (r.x < 2 || r.x + r.width > CANVAS.w - 2) { return null; }
+    for (const id in BOXES) {
+      const b = BOXES[id];
+      if (r.x + r.width > b.x + 2 && b.x + b.w - 2 > r.x &&
+          r.y + r.height > b.y + 2 && b.y + b.h - 2 > r.y) { return null; }
+    }
+    for (const q of (placed || [])) {
+      if (r.x + r.width > q.x && q.x + q.width > r.x &&
+          r.y + r.height > q.y && q.y + q.height > r.y) { return null; }
+    }
+    return r;
+  }
+
+  /* A point on the pipe at `f` of its length, with the local direction. */
+  _sampleAt(pipe, f) {
     try {
       const L = pipe.line.getTotalLength();
-      return pipe.line.getPointAtLength(L * 0.5);
+      const p = pipe.line.getPointAtLength(L * f);
+      const a = pipe.line.getPointAtLength(Math.max(0, L * f - 4));
+      const b = pipe.line.getPointAtLength(Math.min(L, L * f + 4));
+      return { x: p.x, y: p.y, tx: b.x - a.x, ty: b.y - a.y };
     } catch (e) {
       const a = box(pipe.edge.from), b = box(pipe.edge.to);
-      return { x: (cx(a) + cx(b)) / 2, y: (cy(a) + cy(b)) / 2 };
+      return { x: cx(a) + (cx(b) - cx(a)) * f, y: cy(a) + (cy(b) - cy(a)) * f,
+               tx: cx(b) - cx(a), ty: cy(b) - cy(a) };
     }
   }
 
   /* Which nodes/pipes belong to each Step-through stage. Used by step (d);
    * passing null clears all highlighting. */
-  highlightStage(stage) {
+  highlightStage(stage, stageIdx) {
     const STAGE_NODES = {
       carry:   ["TREAS_BOP", "TOLL", "OPEX", "CURCASH"],
       /* both reserves release their surplus into cash-after-HM at this stage,
@@ -589,9 +681,18 @@ class Cascade {
         this.subs[id].g.classList.toggle("in-stage", !!set && set.has(id));
       }
     }
+    /* A pipe belongs to the stage at which it actually carries cash, which
+     * is what edgeStage() says -- the very test already used to decide when
+     * the pipe goes active and when it animates.
+     *
+     * It used to require BOTH endpoints to appear in the stage's node list.
+     * That silently dimmed every pipe CROSSING a stage boundary, and those
+     * are exactly the seven carrying the cash from one stage into the next
+     * (cash in hand -> maintenance, cash after maintenance -> debt service,
+     * and so on). They could never light up at any stage. */
+    const hasIdx = (stageIdx !== null && stageIdx !== undefined);
     for (const key in this.pipes) {
-      const e = this.pipes[key].edge;
-      const inStage = !!set && set.has(e.from) && set.has(e.to);
+      const inStage = hasIdx && edgeStage(this.pipes[key].edge) === stageIdx;
       this.pipes[key].g.classList.toggle("in-stage", inStage);
     }
   }

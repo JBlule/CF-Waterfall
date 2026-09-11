@@ -19,7 +19,10 @@
 const DISPLAY_LABEL = {
   /* title case -> sentence case */
   TOLL:       "Toll revenue",
-  HM:         "Heavy maintenance due",
+  /* The compartment now RECEIVES the charge rather than presenting it, and
+   * its own footer already reads "due ...", so "due" in the name is both
+   * redundant and too wide for the narrower box. */
+  HM:         "Heavy maintenance",
 
   /* BoP/EoP is jargon, and this balance is the project company's cash, not
    * a treasury function */
@@ -53,11 +56,14 @@ const DISPLAY_DOC = {
     "traffic volume, indexed to inflation.",
   OPEX:
     "The recurring cost of operating the asset. It ranks ahead of debt " +
-    "service, and is deducted in arriving at CFADS.",
+    "service, and is deducted in arriving at CFADS. Cash paid here is " +
+    "spent: it leaves the waterfall and never reaches the lenders or the " +
+    "shareholders.",
   HM:
     "The major-maintenance obligation falling due this period — " +
     "resurfacing, structures, equipment renewal. A modest recurring charge, " +
-    "plus a substantial one whenever the maintenance cycle peaks.",
+    "plus a substantial one whenever the maintenance cycle peaks. Cash " +
+    "paid here is spent and leaves the waterfall.",
   TREAS_BOP:
     "The closing cash balance of the previous period, brought forward into " +
     "this one.",
@@ -65,11 +71,15 @@ const DISPLAY_DOC = {
     "Toll revenue less operating costs, plus the cash brought forward. This " +
     "is the cash genuinely in hand before any obligation is met.",
   HM_PAY:
-    "Settlement of the maintenance obligation: cash in hand is applied " +
-    "first, and the maintenance reserve is drawn for any shortfall.",
+    "Settlement of the maintenance obligation. The whole balance passes " +
+    "through this stage: cash in hand is applied to the charge first, the " +
+    "maintenance reserve is drawn for any shortfall, the charge is paid " +
+    "out, and the compartment holds what survives.",
   CASH_AHM:
-    "The cash remaining once heavy maintenance has been settled. This is " +
-    "what the lenders are served from.",
+    "The cash remaining after maintenance, plus any surplus released by " +
+    "the two reserve accounts. Those releases arrive here rather than at " +
+    "the previous stage, which is why this compartment can hold more than " +
+    "the one above it. This is the basis the lenders are served from.",
   MRA:
     "Maintenance Reserve Account. Funded ahead of the maintenance " +
     "programme and drawn when the cash in hand cannot meet the charge.",
@@ -119,13 +129,12 @@ const DISPLAY_DOC = {
 /* The caption on a pipe, keyed "FROM->TO". */
 const DISPLAY_FLOW = {
   "TOLL->CURCASH":        "toll revenue collected",
-  "OPEX->CURCASH":        "operating costs paid",
+  "OPEX->CURCASH":        "operating costs paid out",
   "TREAS_BOP->CURCASH":   "cash brought forward from the previous period",
-  "CURCASH->HM_PAY":      "heavy maintenance settled, ahead of the lenders",
-  "HM->HM_PAY":           "the maintenance charge falling due",
+  "CURCASH->HM_PAY":      "the whole balance enters the maintenance stage",
+  "HM->HM_PAY":           "the maintenance charge paid out",
   "MRA->HM_PAY":          "reserve drawn against the maintenance shortfall",
-  "HM_PAY->CASH_AHM":     "cash net of heavy maintenance",
-  "CURCASH->CASH_AHM":    "cash remaining",
+  "HM_PAY->CASH_AHM":     "cash surviving heavy maintenance",
   "CASH_AHM->DEBT":       "senior debt service paid",
   "DSRA->DEBT":           "reserve drawn to meet interest and arrears",
   "DEBT_DEF->DEBT_INT":   "once the arrears are cleared",
@@ -163,4 +172,22 @@ function displayDoc(node) {
 function displayFlow(edge) {
   if (!edge) { return ""; }
   return DISPLAY_FLOW[edge.from + "->" + edge.to] || edge.flow;
+}
+
+/* The graph types OPEX and HM as "source", which was true while they fed
+ * the stage. They now receive from it, so the inspector's kicker would
+ * otherwise read "inflow" over a compartment that is plainly an outflow. */
+const DISPLAY_KIND = {
+  OPEX: "outflow — cash spent, out of the waterfall",
+  HM:   "outflow — cash spent, out of the waterfall"
+};
+
+/* The direction a pipe is DRAWN in, which for the two spent compartments is
+ * the reverse of the direction the graph declares. Used by the inspector so
+ * its "From ... to ..." line agrees with the arrow on screen. */
+function displayEnds(edge) {
+  const rev = typeof REVERSED_EDGES !== "undefined" &&
+    REVERSED_EDGES.has(edge.from + "->" + edge.to);
+  return rev ? { from: edge.to, to: edge.from }
+             : { from: edge.from, to: edge.to };
 }

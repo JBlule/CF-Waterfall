@@ -302,8 +302,15 @@ input[type="range"]:disabled::-webkit-slider-thumb { border-color: var(--ink-3);
 .tank-value {
   font: 600 13px/1 var(--mono); fill: var(--ink); pointer-events: none;
 }
+/* The secondary line sits at the FOOT of the tank -- "target ...",
+   "outstanding ...", "traffic ..." -- which is precisely where the liquid
+   rises to. In pale ink on the teal it disappeared as soon as a reserve
+   filled. Near-black, over a thin paper-coloured halo, so it stays legible
+   whether the tank behind it is empty or full. */
 .tank-sub {
-  font: 400 9.5px/1 var(--mono); fill: var(--ink-3); pointer-events: none;
+  font: 400 9.5px/1 var(--mono); fill: var(--ink); pointer-events: none;
+  paint-order: stroke; stroke: var(--paper-2); stroke-width: 2.6;
+  stroke-linejoin: round;
 }
 
 .node-source .tank-body { fill: var(--paper-3); }
@@ -311,6 +318,18 @@ input[type="range"]:disabled::-webkit-slider-thumb { border-color: var(--ink-3);
 .node-sink .tank-glass { stroke: var(--release); stroke-width: 1.8; }
 .node-sink .tank-liquid { fill: var(--release); }
 .node-sink .tank-surface { fill: #6b9d5c; }
+
+/* SPENT: cash that has left the waterfall for good -- operating costs and
+   heavy maintenance. Deliberately NOT the sink green, which means value
+   released to the shareholders; this is consumption, not a return. Drained
+   of colour, with a dashed edge, so the eye reads "gone" rather than "held". */
+.node-spent .tank-body { fill: var(--paper-3); }
+.node-spent .tank-glass { stroke: var(--ink-3); stroke-width: 1.5;
+                          stroke-dasharray: 5 3; }
+.node-spent .tank-liquid { fill: #b9ad9c; }
+.node-spent .tank-surface { fill: #9d9081; }
+.node-spent .tank-label { font-size: 10px; }
+.node-spent .tank-value { fill: var(--ink-2); }
 
 .badge-box { fill: var(--alert); }
 .badge-text {

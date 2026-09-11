@@ -330,7 +330,7 @@
     if (selection.kind === "node") {
       const n = selection.node;
       panel.highlight(n.params || []);
-      add(box, "div", "insp-kicker", kindWord(n.kind));
+      add(box, "div", "insp-kicker", DISPLAY_KIND[n.id] || kindWord(n.kind));
       add(box, "h2", "insp-title", displayLabel(n));
       const b = add(box, "div", "insp-body");
       add(b, "p", null, displayDoc(n));
@@ -374,8 +374,10 @@
     const b2 = add(box, "div", "insp-body");
     b2.style.marginTop = ".7rem";
     add(b2, "p", null, PIPE_DOC[e.type] || "");
-    add(b2, "p", null, "From " + displayLabelById(e.from, graph) +
-      " to " + displayLabelById(e.to, graph) + ".");
+    /* the direction the pipe is DRAWN, not the one the graph declares */
+    const ends = displayEnds(e);
+    add(b2, "p", null, "From " + displayLabelById(ends.from, graph) +
+      " to " + displayLabelById(ends.to, graph) + ".");
     const amt = cascade._edgeAmount(e, p, run);
     if (amt !== null) {
       const figs = document.createElement("dl");
@@ -539,11 +541,20 @@
                 ["Less operating costs", M(-r.pre.opex.nominal[p.period - 1])],
                 ["Plus cash brought forward", M(p.treasuryBoP)],
                 ["Cash in hand", M(p.currentCash)]],
-      HM_PAY: [["Maintenance charge due", M(p.hm.hmDue)],
-               ["Met from cash", M(p.hm.hmFromCash)],
-               ["Drawn from the MRA", M(p.hm.hmFromMra)],
+      /* In, out, and what is left -- the three must reconcile, which is the
+       * whole point of routing the charge out to the left. */
+      HM_PAY: [["Cash in hand entering", M(p.currentCash)],
+               ["Plus drawn from the MRA", M(p.hm.hmFromMra)],
+               ["Maintenance charge due", M(p.hm.hmDue)],
+               ["Less charge paid out", M(-(p.hm.hmFromCash + p.hm.hmFromMra))],
+               ["Cash surviving", M(p.hm.cashAfterHm)],
                ["Signal", p.hm.hmSignal || "none"]],
-      CASH_AHM: [["Cash after heavy maintenance", M(p.hm.cashAfterHm)]],
+      /* This is where the two reserve surpluses rejoin the waterfall, which
+       * is why it can hold more than the stage above it. */
+      CASH_AHM: [["Cash surviving maintenance", M(p.hm.cashAfterHm)],
+                 ["Plus MRA surplus released", M(p.mra.release)],
+                 ["Plus DSRA surplus released", M(p.dsra.release)],
+                 ["Basis for debt service", M(p.cashAvailForDebt)]],
       MRA: [["Opening balance", M(p.mraBoP)], ["Target", M(p.mraTarget)],
             ["Drawn for maintenance", M(p.hm.hmFromMra)],
             ["Replenished", M(p.mra.recharge)], ["Released", M(p.mra.release)],
