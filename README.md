@@ -160,7 +160,20 @@ throughout `src/engine.js` let you trace every line back to it.
 
 ## Licence
 
-MIT — see `LICENSE`.
+Source-available, not open source. See `LICENSE`.
+
+The terms are the [PolyForm Strict License
+1.0.0](https://polyformproject.org/licenses/strict/1.0.0/). In short — the
+licence text governs, this summary does not: you may read, study and run this
+project for any noncommercial purpose; you may not distribute it, change it,
+or build new works on it. Commercial use requires a separate written licence.
+
+Releases published before 2026-09-21 were made available under the MIT
+License and remain under those terms.
+
+Built in the Philomath Vibe Coding Studio —
+<https://philomathlearning.com/studio>. The Studio badge in the page footers
+is kept in place as acknowledgement.
 
 ## Read this before trusting a number
 
