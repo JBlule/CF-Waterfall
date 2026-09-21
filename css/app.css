@@ -1,0 +1,665 @@
+/* =====================================================================
+ * app.css -- paper/ink palette, MONIAC tank + liquid + pipe language.
+ * ===================================================================== */
+
+:root {
+  /* paper & ink */
+  --paper:    #f2eee5;
+  --paper-2:  #fbf9f4;
+  --paper-3:  #e9e3d6;
+  --ink:      #211e1c;
+  --ink-2:    #4d463f;
+  --ink-3:    #8b8073;
+  --rule:     #d3cbba;
+  --rule-2:   #bdb3a0;
+
+  /* the water */
+  --liquid:      #35707f;
+  --liquid-top:  #57a0b0;
+  --liquid-soft: #cfe3e7;
+
+  /* flow semantics -- draw and release must never read as one thing */
+  --draw:     #b06a1e;   /* reservoir paying a shortfall  */
+  --release:  #4c7a3f;   /* reservoir surplus to equity   */
+  --fund:     #5c7fa3;   /* cash topping a reservoir up   */
+
+  --alert:    #a03328;
+  --ok:       #2f6b4f;
+  --warn:     #b58324;
+
+  --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --serif: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 14px/1.5 var(--sans);
+  /* faint laid-paper texture */
+  background-image:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.011) 0 1px, transparent 1px 3px);
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.app {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 320px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-areas: "head head head" "intro intro intro" "side stage info";
+  height: 100vh;
+}
+
+/* what the thing is, before anyone has to guess */
+.intro {
+  grid-area: intro;
+  display: flex; gap: 2rem; flex-wrap: wrap;
+  padding: .85rem 1.2rem .9rem;
+  background: var(--paper-3);
+  border-bottom: 1px solid var(--rule);
+}
+.intro p {
+  flex: 1 1 26rem; margin: 0; max-width: 46rem;
+  font: 13px/1.55 var(--serif); color: var(--ink-2);
+}
+.intro b { color: var(--ink); font-weight: 600; }
+.intro a { color: var(--liquid); }
+
+.masthead {
+  grid-area: head;
+  display: flex; align-items: baseline; gap: 1rem;
+  padding: .7rem 1.2rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-2);
+}
+.masthead h1 {
+  font: 600 17px/1.2 var(--serif);
+  margin: 0; letter-spacing: .01em;
+}
+.masthead .tagline {
+  font: italic 13px/1.3 var(--serif);
+  color: var(--ink-3);
+}
+.masthead nav { margin-left: auto; display: flex; gap: .35rem; }
+
+.sidebar, .inspector {
+  overflow-y: auto;
+  background: var(--paper-2);
+  padding: .9rem 1rem 3rem;
+}
+.sidebar { grid-area: side; border-right: 1px solid var(--rule); }
+.inspector { grid-area: info; border-left: 1px solid var(--rule); }
+
+.stage {
+  grid-area: stage;
+  display: flex; flex-direction: column;
+  min-width: 0; min-height: 0;
+}
+
+.panel-title {
+  font: 600 11px/1 var(--sans);
+  text-transform: uppercase; letter-spacing: .09em;
+  color: var(--ink-3);
+  margin: 0 0 .7rem;
+}
+
+/* ------------------------------------------------------- assumptions */
+
+.pgroup { border-bottom: 1px solid var(--rule); padding: .1rem 0 .5rem; }
+.pgroup > summary {
+  cursor: pointer; list-style: none;
+  font: 600 12px/1 var(--sans);
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ink-2);
+  padding: .6rem 0 .5rem;
+  display: flex; align-items: center; gap: .5rem;
+}
+.pgroup > summary::-webkit-details-marker { display: none; }
+.pgroup > summary::before {
+  content: "▸"; color: var(--ink-3); font-size: 10px;
+  transition: transform .15s;
+}
+.pgroup[open] > summary::before { transform: rotate(90deg); }
+.pgroup-tag {
+  margin-left: auto;
+  font: 400 9px/1 var(--sans); letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-3);
+  border: 1px solid var(--rule-2); border-radius: 2px;
+  padding: 2px 4px;
+}
+
+.prow { padding: .35rem 0 .5rem; border-left: 2px solid transparent;
+        padding-left: .5rem; margin-left: -.5rem; transition: background .2s; }
+.prow.is-relevant {
+  border-left-color: var(--liquid);
+  background: var(--liquid-soft);
+}
+.prow.is-disabled { opacity: .45; }
+.prow-head { display: flex; align-items: baseline; gap: .5rem; }
+.prow-head label { font-size: 12px; color: var(--ink-2); }
+.prow-value {
+  margin-left: auto;
+  font: 600 12px/1 var(--mono); color: var(--ink);
+}
+.prow-note {
+  margin: .3rem 0 0; font: italic 11px/1.35 var(--serif); color: var(--ink-3);
+}
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 18px; margin: .15rem 0 0;
+  background: transparent; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px; background: var(--rule-2); border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 13px; height: 13px; margin-top: -5px;
+  border-radius: 50%; background: var(--paper-2);
+  border: 2px solid var(--liquid);
+}
+input[type="range"]::-moz-range-track {
+  height: 3px; background: var(--rule-2); border-radius: 2px;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--paper-2); border: 2px solid var(--liquid);
+}
+input[type="range"]:disabled::-webkit-slider-thumb { border-color: var(--ink-3); }
+
+.ptoggle {
+  width: 100%; margin-top: .2rem; padding: .45rem .5rem;
+  /* the plain-language options are sentences, so let them wrap */
+  font: 600 11px/1.3 var(--sans); letter-spacing: .03em;
+  text-align: center; white-space: normal;
+  background: var(--paper-3); color: var(--ink-2);
+  border: 1px solid var(--rule-2); border-radius: 3px; cursor: pointer;
+}
+.ptoggle.is-on { background: var(--liquid); color: #fff; border-color: var(--liquid); }
+
+/* ------------------------------------------------------------ buttons */
+
+.btn {
+  font: 600 11px/1 var(--sans); letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: .5rem .8rem;
+  background: var(--paper-2); color: var(--ink-2);
+  border: 1px solid var(--rule-2); border-radius: 3px;
+  cursor: pointer; text-decoration: none;
+}
+.btn:hover:not(:disabled) { background: var(--paper-3); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.is-primary { background: var(--liquid); border-color: var(--liquid); color: #fff; }
+.btn.is-primary:hover:not(:disabled) { background: #2b5d69; }
+
+/* --------------------------------------------------------- the stage */
+
+.controls {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  padding: .6rem 1rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-2);
+}
+.period-readout {
+  font: 600 13px/1 var(--mono);
+  padding: .3rem .55rem; border: 1px solid var(--rule-2); border-radius: 3px;
+  background: var(--paper);
+  min-width: 8.5rem; text-align: center;
+}
+.stage-readout {
+  font: italic 12px/1.3 var(--serif); color: var(--ink-2);
+  margin-left: .25rem;
+}
+.controls .spacer { flex: 1; }
+.ctl-sep {
+  width: 1px; align-self: stretch; background: var(--rule); margin: 0 .3rem;
+}
+.speed {
+  margin-left: auto;
+  font: 600 10px/1 var(--sans); text-transform: uppercase;
+  letter-spacing: .07em; color: var(--ink-3);
+  display: flex; align-items: center; gap: .35rem;
+}
+.speed select {
+  font: 600 11px/1 var(--sans); color: var(--ink-2);
+  background: var(--paper); border: 1px solid var(--rule-2);
+  border-radius: 3px; padding: .35rem .4rem; text-transform: none;
+  letter-spacing: 0;
+}
+
+.figures {
+  display: flex; gap: 0; flex-wrap: wrap;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-2);
+}
+.figure {
+  flex: 1 1 0; min-width: 92px;
+  padding: .45rem .7rem;
+  border-right: 1px solid var(--rule);
+}
+.figure:last-child { border-right: none; }
+.figure dt {
+  font: 600 9px/1.2 var(--sans); text-transform: uppercase;
+  letter-spacing: .07em; color: var(--ink-3); margin: 0 0 .15rem;
+}
+.figure dd { margin: 0; font: 600 13px/1.2 var(--mono); }
+.figure.is-alert dd { color: var(--alert); }
+.figure.is-ok dd { color: var(--ok); }
+/* not yet reached by the step-through */
+.figure.is-pending dd { color: var(--rule-2); }
+
+.canvas-wrap { flex: 1; overflow: auto; padding: 1rem; min-height: 0; }
+.cascade-svg { display: block; width: 100%; height: auto; max-width: 940px;
+               margin: 0 auto; }
+
+/* ----------------------------------------------------------- tanks */
+
+.node { cursor: pointer; }
+
+.tank-body { fill: var(--paper-2); stroke: none; }
+.tank-glass {
+  fill: none; stroke: var(--rule-2); stroke-width: 1.2;
+  pointer-events: none;
+}
+.node:hover .tank-glass { stroke: var(--ink-2); stroke-width: 1.6; }
+.node.is-selected .tank-glass { stroke: var(--liquid); stroke-width: 2.4; }
+
+.cascade-svg { --fill-ms: 500ms; }
+.tank-liquid {
+  fill: var(--liquid); opacity: .62;
+  transition: y var(--fill-ms) ease-out, height var(--fill-ms) ease-out;
+}
+.tank-surface {
+  fill: var(--liquid-top);
+  transition: y var(--fill-ms) ease-out;
+}
+.node.is-negative .tank-liquid { fill: var(--alert); opacity: .5; }
+.node.is-negative .tank-surface { fill: var(--alert); }
+.node.is-bad .tank-glass { stroke: var(--alert); stroke-width: 2.5;
+                           stroke-dasharray: 4 2; }
+
+/* reservoirs read as heavier vessels; they hold a level between periods */
+.node-reservoir .tank-body { fill: #f6f2e8; }
+.node-reservoir .tank-glass { stroke: var(--ink-2); stroke-width: 1.8; }
+.node-reservoir.is-underfilled .tank-glass { stroke: var(--warn); }
+
+.tank-target {
+  stroke: var(--ink-2); stroke-width: 1.1; stroke-dasharray: 5 3;
+  opacity: .8; pointer-events: none;
+}
+
+.tank-label {
+  font: 600 10.5px/1 var(--sans); fill: var(--ink-2);
+  letter-spacing: .02em; pointer-events: none;
+}
+.tank-value {
+  font: 600 13px/1 var(--mono); fill: var(--ink); pointer-events: none;
+}
+/* The secondary line sits at the FOOT of the tank -- "target ...",
+   "outstanding ...", "traffic ..." -- which is precisely where the liquid
+   rises to. In pale ink on the teal it disappeared as soon as a reserve
+   filled. Near-black, over a thin paper-coloured halo, so it stays legible
+   whether the tank behind it is empty or full. */
+.tank-sub {
+  font: 400 9.5px/1 var(--mono); fill: var(--ink); pointer-events: none;
+  paint-order: stroke; stroke: var(--paper-2); stroke-width: 2.6;
+  stroke-linejoin: round;
+}
+
+.node-source .tank-body { fill: var(--paper-3); }
+.node-source .tank-label { font-size: 10px; }
+.node-sink .tank-glass { stroke: var(--release); stroke-width: 1.8; }
+.node-sink .tank-liquid { fill: var(--release); }
+.node-sink .tank-surface { fill: #6b9d5c; }
+
+/* SPENT: cash that has left the waterfall for good -- operating costs and
+   heavy maintenance. Deliberately NOT the sink green, which means value
+   released to the shareholders; this is consumption, not a return. Drained
+   of colour, with a dashed edge, so the eye reads "gone" rather than "held". */
+.node-spent .tank-body { fill: var(--paper-3); }
+.node-spent .tank-glass { stroke: var(--ink-3); stroke-width: 1.5;
+                          stroke-dasharray: 5 3; }
+.node-spent .tank-liquid { fill: #b9ad9c; }
+.node-spent .tank-surface { fill: #9d9081; }
+.node-spent .tank-label { font-size: 10px; }
+.node-spent .tank-value { fill: var(--ink-2); }
+
+.badge-box { fill: var(--alert); }
+.badge-text {
+  font: 700 8.5px/1 var(--sans); fill: #fff; letter-spacing: .06em;
+  pointer-events: none;
+}
+
+/* ------------------------------------- debt: three ordered buckets */
+
+.node-compound .tank-body { fill: #efe9dc; }
+.node-compound .tank-glass { stroke: var(--ink); stroke-width: 1.8; }
+
+.sub { cursor: pointer; }
+.sub-body { fill: var(--paper-2); }
+.sub-glass { fill: none; stroke: var(--rule-2); stroke-width: 1.1;
+             pointer-events: none; }
+.sub:hover .sub-glass { stroke: var(--ink-2); }
+.sub.is-selected .sub-glass { stroke: var(--liquid); stroke-width: 2.2; }
+.sub-liquid { fill: var(--liquid); opacity: .6; transition: y .5s, height .5s; }
+.sub.is-short .sub-liquid { fill: var(--alert); opacity: .55; }
+.sub.is-short .sub-glass { stroke: var(--alert); stroke-width: 1.8; }
+.sub.is-served .sub-liquid { fill: var(--ok); opacity: .5; }
+.sub.is-idle .sub-glass { stroke-dasharray: 3 3; opacity: .55; }
+/* interest being deferred, or arrears being carried forward */
+.sub.is-accruing .sub-sub { fill: var(--alert); font-weight: 700; }
+.sub.is-accruing .sub-glass { stroke: var(--alert); stroke-width: 1.6;
+                              stroke-dasharray: none; opacity: 1; }
+
+.sub-label { font: 600 10px/1 var(--sans); fill: var(--ink-2);
+             pointer-events: none; }
+.sub-value { font: 600 11.5px/1 var(--mono); fill: var(--ink);
+             pointer-events: none; }
+.sub-sub { font: 400 9px/1 var(--mono); fill: var(--ink-3);
+           pointer-events: none; }
+.sub-priority { fill: none; stroke: var(--ink-3); stroke-width: 1.4;
+                stroke-dasharray: 3 2; }
+
+/* ------------------------------------------------- lock-up lamps */
+
+.lamp-dot { fill: var(--paper-3); stroke: var(--rule-2); stroke-width: 1.2; }
+.lamp-dot.is-on { fill: var(--ok); stroke: var(--ok); }
+.lamp-dot.is-off { fill: var(--alert); stroke: var(--alert); }
+.lamp-label { font: 600 8px/1 var(--sans); fill: var(--ink-3);
+              letter-spacing: .05em; pointer-events: none; }
+.node-gate .tank-glass { stroke: var(--ink-2); stroke-width: 1.6;
+                         stroke-dasharray: 6 3; }
+/* The verdict carries the alarm, so the gate needs no badge on top of it. */
+.node-gate.is-blocked .tank-value { fill: var(--alert); }
+.node-gate.is-blocked .tank-glass { stroke: var(--alert); stroke-width: 2; }
+.node-gate.is-passed .tank-value { fill: var(--ok); }
+
+/* ------------------------------------------------------------ pipes */
+
+.pipe { cursor: pointer; }
+.pipe-hit { fill: none; stroke: transparent; stroke-width: 16; }
+.pipe-casing { fill: none; stroke: var(--paper); stroke-width: 7;
+               stroke-linecap: round; pointer-events: none; }
+.pipe-line { fill: none; stroke-width: 2.2; stroke-linecap: round;
+             pointer-events: none; }
+.pipe-flow { fill: none; stroke-width: 2.2; stroke-linecap: round;
+             pointer-events: none; opacity: 0; }
+.pipe-amount { font: 600 10px/1 var(--mono); fill: var(--ink-2);
+               paint-order: stroke; stroke: var(--paper); stroke-width: 3.5;
+               pointer-events: none; }
+
+/* --- the seven flow types, each visually distinct ---------------- */
+
+.pipe-cash  .pipe-line { stroke: var(--liquid); }
+.pipe-carry .pipe-line { stroke: var(--ink-3); stroke-dasharray: 7 4;
+                         stroke-width: 1.8; }
+.pipe-test  .pipe-line { stroke: var(--ink-3); stroke-dasharray: 2 3;
+                         stroke-width: 1.5; }
+.pipe-fund  .pipe-line { stroke: var(--fund); stroke-dasharray: 1 4;
+                         stroke-width: 2.6; stroke-linecap: round; }
+
+/* DRAW: a reservoir paying a shortfall. Heavy, warm, long-dashed. */
+.pipe-draw .pipe-line {
+  stroke: var(--draw); stroke-width: 3.4; stroke-dasharray: 11 4;
+}
+.pipe-draw .pipe-casing { stroke-width: 8.5; }
+.pipe-draw .pipe-amount { fill: var(--draw); font-weight: 700; }
+
+/* RELEASE: a reservoir's surplus going out to equity. Thin, cool green,
+   solid, open-diamond head -- the opposite reading from a draw. */
+.pipe-release .pipe-line {
+  stroke: var(--release); stroke-width: 1.7; stroke-dasharray: none;
+}
+.pipe-release .pipe-amount { fill: var(--release); }
+
+.pipe.is-idle { opacity: .22; }
+.pipe.is-idle .pipe-amount { display: none; }
+.pipe:hover .pipe-line { stroke-width: 4; }
+.pipe.is-selected .pipe-line { stroke: var(--ink); stroke-width: 4; }
+
+/* --- liquid travelling along a pipe ------------------------------ */
+/* The moving droplets ride on top of the static line. They appear when the
+   pipe is flowing: every carrying pipe during Run, only the current stage's
+   pipes while stepping. */
+@keyframes pipeFlow { to { stroke-dashoffset: -28; } }
+
+.pipe-flow {
+  stroke: var(--liquid-top);
+  stroke-dasharray: 5 9;
+  stroke-linecap: round;
+}
+.cascade-svg.is-running .pipe.is-active .pipe-flow,
+.pipe.is-flowing .pipe-flow {
+  opacity: .95;
+  animation: pipeFlow .85s linear infinite;
+}
+.pipe-draw .pipe-flow { stroke: #e0a35c; stroke-width: 3; stroke-dasharray: 6 10; }
+.pipe-release .pipe-flow { stroke: #7fae6d; }
+.pipe-fund .pipe-flow { stroke: #93b3cd; }
+.pipe-carry .pipe-flow, .pipe-test .pipe-flow { stroke: var(--ink-3); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cascade-svg.is-running .pipe.is-active .pipe-flow,
+  .pipe.is-flowing .pipe-flow { animation: none; opacity: .8; }
+  .tank-liquid, .tank-surface { transition: none; }
+}
+
+/* --- stage highlighting (used by Step-through) ------------------- */
+
+.cascade-svg.stage-mode .node:not(.in-stage) { opacity: .28; }
+.cascade-svg.stage-mode .sub:not(.in-stage) { opacity: .35; }
+.cascade-svg.stage-mode .pipe:not(.in-stage) { opacity: .1; }
+.cascade-svg.stage-mode .node.in-stage .tank-glass { stroke-width: 2.2; }
+
+/* ------------------------------------------------- stage strip */
+
+.stagebar {
+  display: flex; align-items: stretch; gap: 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+.stagebar.is-hidden { display: none; }
+.stage-chip {
+  flex: 1 1 0; min-width: 0;
+  padding: .4rem .5rem .45rem;
+  border-right: 1px solid var(--rule);
+  background: none; text-align: left; cursor: pointer;
+  font: 11px/1.25 var(--sans); color: var(--ink-3);
+}
+.stage-chip:last-child { border-right: none; }
+.stage-chip .n {
+  display: block; font: 700 9px/1 var(--mono); letter-spacing: .08em;
+  color: var(--ink-3); margin-bottom: .2rem;
+}
+.stage-chip.is-done { color: var(--ink-2); background: var(--paper-3); }
+.stage-chip.is-current {
+  color: #fff; background: var(--liquid);
+}
+.stage-chip.is-current .n { color: rgba(255,255,255,.75); }
+
+.narration {
+  padding: .55rem 1rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-2);
+  font: 13px/1.5 var(--serif); color: var(--ink);
+  min-height: 2.4rem;
+}
+.narration:empty { display: none; }
+.narration b { font-family: var(--mono); font-size: 12.5px; font-weight: 700; }
+.narration .flag {
+  display: inline-block; margin-left: .4rem; padding: 1px 5px;
+  border-radius: 2px; background: var(--alert); color: #fff;
+  font: 700 9.5px/1.5 var(--sans); letter-spacing: .06em;
+}
+.narration .flag.ok { background: var(--ok); }
+
+/* ------------------------------------------------------- inspector */
+
+.insp-kicker {
+  font: 600 9px/1 var(--sans); text-transform: uppercase;
+  letter-spacing: .1em; color: var(--ink-3); margin: 0 0 .35rem;
+}
+.insp-title { font: 600 15px/1.25 var(--serif); margin: 0 0 .5rem; }
+.insp-body { font: 13px/1.55 var(--serif); color: var(--ink-2); }
+.insp-body p { margin: 0 0 .7rem; }
+.insp-figs {
+  margin: .8rem 0; border-top: 1px solid var(--rule);
+}
+.insp-figs div {
+  display: flex; justify-content: space-between; gap: .5rem;
+  padding: .3rem 0; border-bottom: 1px solid var(--rule);
+  font: 12px/1.3 var(--sans);
+}
+.insp-figs dt { color: var(--ink-3); }
+.insp-figs dd { margin: 0; font-family: var(--mono); font-weight: 600; }
+.insp-meta {
+  font: 11px/1.4 var(--mono); color: var(--ink-3);
+  border-top: 1px solid var(--rule); padding-top: .55rem; margin-top: .8rem;
+}
+.insp-flowtype {
+  display: inline-block; padding: 2px 6px; border-radius: 2px;
+  font: 700 9px/1.4 var(--sans); text-transform: uppercase;
+  letter-spacing: .07em; color: #fff;
+}
+.ft-cash { background: var(--liquid); }
+.ft-draw { background: var(--draw); }
+.ft-release { background: var(--release); }
+.ft-fund { background: var(--fund); }
+.ft-carry, .ft-test, .ft-priority { background: var(--ink-3); }
+
+.insp-empty { font: italic 13px/1.5 var(--serif); color: var(--ink-3); }
+
+/* the formula worked through with the numbers currently on screen */
+.insp-dyn {
+  margin: .8rem 0 .2rem; padding: .6rem .7rem;
+  background: var(--liquid-soft);
+  border-left: 3px solid var(--liquid); border-radius: 0 3px 3px 0;
+  font: 12.5px/1.6 var(--serif); color: var(--ink);
+}
+.insp-dyn b { font-family: var(--mono); font-size: 11.5px; font-weight: 700; }
+.insp-dyn em { color: var(--ink-3); font-style: normal;
+               font: 600 9.5px/1 var(--sans); text-transform: uppercase;
+               letter-spacing: .07em; }
+
+/* ------------------------------------------------- glossary page */
+
+.app--doc { grid-template-columns: 300px minmax(0, 1fr);
+            grid-template-areas: "head head" "side doc"; }
+.doc {
+  grid-area: doc; overflow-y: auto;
+  padding: 1.6rem 2rem 6rem;
+}
+.doc-lede {
+  max-width: 46rem; margin: 0 0 2rem;
+  font: italic 15px/1.6 var(--serif); color: var(--ink-2);
+  padding-bottom: 1.2rem; border-bottom: 1px solid var(--rule);
+}
+
+.toc { display: flex; flex-direction: column; }
+.toc-link {
+  padding: .4rem .55rem; border-left: 2px solid transparent;
+  text-decoration: none; color: var(--ink-2);
+  font: 13px/1.3 var(--serif);
+}
+.toc-link b { font-weight: 600; display: block; }
+.toc-link span {
+  display: block; font: italic 11px/1.3 var(--serif); color: var(--ink-3);
+}
+.toc-link:hover { background: var(--paper-3); border-left-color: var(--liquid); }
+
+.entry {
+  max-width: 46rem; margin: 0 0 2.6rem;
+  padding: 1.1rem 1.3rem 1.2rem;
+  background: var(--paper-2);
+  border: 1px solid var(--rule); border-radius: 4px;
+  scroll-margin-top: 1rem;
+}
+.entry.is-target {
+  border-color: var(--liquid); border-left-width: 4px;
+  box-shadow: 0 1px 8px rgba(53,112,127,.14);
+}
+.entry h2 { font: 600 20px/1.25 var(--serif); margin: 0 0 .1rem; }
+.entry-aka {
+  font: italic 14px/1.3 var(--serif); color: var(--ink-3); font-weight: 400;
+}
+.entry-plain {
+  font: 15px/1.6 var(--serif); color: var(--ink);
+  margin: .7rem 0 1.1rem; padding-left: .8rem;
+  border-left: 3px solid var(--liquid);
+}
+.entry-sub {
+  font: 600 10px/1 var(--sans); text-transform: uppercase;
+  letter-spacing: .1em; color: var(--ink-3);
+  margin: 1.2rem 0 .5rem;
+}
+.entry p { font: 14px/1.65 var(--serif); color: var(--ink-2); margin: 0 0 .7rem; }
+.entry code {
+  font: 12.5px/1.5 var(--mono); background: var(--paper-3);
+  padding: 1px 4px; border-radius: 2px; color: var(--ink);
+}
+.entry-foot { margin-top: 1.1rem; border-top: 1px solid var(--rule);
+              padding-top: .7rem; }
+.entry-meta {
+  display: flex; gap: .7rem; padding: .18rem 0;
+  font: 11.5px/1.5 var(--sans);
+}
+.entry-meta .k {
+  flex: 0 0 6.5rem; color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: .06em;
+  font-size: 9.5px; font-weight: 600; padding-top: .15rem;
+}
+.entry-meta a { color: var(--liquid); }
+
+.legend-row { display: flex; align-items: center; gap: .5rem;
+              padding: .25rem 0; }
+.legend-swatch { width: 78px; height: 15px; flex: 0 0 78px; }
+.legend-text b { font: 600 11px/1.3 var(--sans); display: block; }
+.legend-text span { font: italic 10.5px/1.3 var(--serif); color: var(--ink-3); }
+
+/* the inline "read more" link in the cascade inspector */
+.insp-more {
+  display: inline-block; margin-top: .3rem;
+  font: 600 11px/1 var(--sans); letter-spacing: .04em;
+  text-transform: uppercase; color: var(--liquid);
+  text-decoration: none; border-bottom: 1px solid var(--liquid);
+  padding-bottom: 2px;
+}
+.insp-more:hover { color: var(--ink); border-color: var(--ink); }
+
+/* ---------------------------------------------------- site footer */
+
+.site-footer {
+  margin-top: 2rem;            /* breathing room above the badge */
+  padding: 1.4rem 1rem 1.6rem;
+  border-top: 1px solid var(--rule);
+  text-align: center;          /* centred, per the Studio's instructions */
+}
+.site-footer img { display: inline-block; vertical-align: middle; }
+.site-footer a { display: inline-block; line-height: 0; }
+.site-footer p {
+  margin: .7rem 0 0;
+  font: italic 11.5px/1.5 var(--serif); color: var(--ink-3);
+}
+
+/* On the cascade page the footer is a fixed band under the scrolling
+   canvas, so the badge stays visible without hunting for it. */
+.stage > .site-footer {
+  flex: 0 0 auto; margin-top: 0;
+  padding: .8rem 1rem .9rem;
+  background: var(--paper-2);
+}
+
+/* --------------------------------------------------------- anomaly */
+
+.anomaly-bar {
+  padding: .5rem 1rem; background: var(--alert); color: #fff;
+  font: 600 12px/1.4 var(--sans);
+}
+.anomaly-bar:empty { display: none; }

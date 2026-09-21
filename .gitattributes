@@ -1,0 +1,12 @@
+# Keep line endings stable in the repository regardless of who commits.
+* text=auto eol=lf
+
+# The .wsf test runner is executed by Windows Script Host.
+*.wsf text eol=crlf
+
+# Generated data wrappers: large, machine-written, not worth diffing.
+data/graph_data.js   linguist-generated=true
+tests/oracle_data.js linguist-generated=true -diff
+
+# Don't let the oracle fixture skew the language statistics.
+oracle_scenarios.json linguist-generated=true -diff

@@ -1,0 +1,540 @@
+========================================================================
+CASH-FLOW WATERFALL ENGINE -- TEST RUN
+========================================================================
+
+--- computeTraffic [R16] -- deterministic traffic ---------------------
+  PASS  31 periods produced
+  PASS  period 1 = 25,000,000
+  PASS  period 31 = 25,000,000 (flat, no randomness)
+  PASS  a different base carries through
+  PASS  zero base gives zero traffic
+  PASS  non-integer base is truncated by INT()
+  PASS  Random_Weight is forced to 0 even when passed 1
+
+--- indexVector [R24/R36/R55] -- CPI indexation -----------------------
+  PASS  period 1 coefficient is exactly 1
+  PASS  period 2 = 1.015
+  PASS  period 5 = 1.015^4
+  PASS  period 31 = 1.015^30
+  PASS  CPI = 0 leaves every period at 1
+  PASS  negative CPI deflates
+
+--- yearHeader [R23/R35/R54] -- the rows that LOOK like CPI -----------
+  PASS  period 1 = Year_Base
+  PASS  period 2 = Year_Base + 1
+  PASS  period 31 = Year_Base + 30
+  PASS  31 entries
+  PASS  the final period sits exactly on the horizon and is shown
+  PASS  Num_Periods 10: period 11 is the last visible year
+  PASS  Num_Periods 10: period 12 is blank
+  PASS  Num_Periods 10: period 31 is blank
+  PASS  period 1 is shown even with a zero horizon
+  PASS  Num_Periods changes no calculation row (display only, as in Feuil1)
+
+--- computeToll [R20/R27] -- real and nominal revenue -----------------
+  PASS  real toll = 25,000,000 x 0.15 = 3,750,000
+  PASS  nominal period 1 = real (index 1)
+  PASS  nominal period 2 = 3,750,000 x 1.015 = 3,806,250
+  PASS  zero tariff gives zero revenue
+
+--- computeOpex [R32/R39] -- flat real, indexed nominal ---------------
+  PASS  real OPEX is flat at 750,000
+  PASS  nominal period 1 = 750,000
+  PASS  nominal period 2 = 750,000 x 1.015 = 761,250
+
+--- hmPeakCounter [R46] -- cycles on HM_Peak_Cycle --------------------
+  PASS  counter starts at 1
+  PASS  period 5 counter = 5
+  PASS  period 6 counter wraps to 1
+  PASS  period 10 counter = 5
+  PASS  period 31 counter = 1
+  PASS  length is 31
+  PASS  cycle 5 reproduces the workbook's hardcoded sequence exactly
+  PASS  cycle 15: period 15 is the top of the cycle
+  PASS  cycle 15: period 16 wraps to 1
+  PASS  cycle 15: period 30 is the top again
+  PASS  cycle 3: period 3 is the top
+  PASS  cycle 3: period 4 wraps to 1
+  PASS  cycle 3: period 6 is the top again
+  PASS  cycle 1: every period is the top of the cycle
+  PASS  cycle 40 never wraps within 31 periods
+  PASS  cycle 0 is clamped to 1 rather than failing to wrap
+  PASS  negative cycle is clamped to 1
+
+--- computeHm [R44/R47/R51/R58] -- heavy maintenance ------------------
+  PASS  no peak in period 1: real = 150,000
+  PASS  peak in period 5: real = 1,150,000
+  PASS  nominal period 5 = 1,150,000 x 1.015^4
+  PASS  peak recurs in period 10
+  PASS  zero peak amount leaves the flat base
+  PASS  cycle 3: peak in period 3
+  PASS  cycle 3: peak in period 6, not period 8
+  PASS  cycle 3: peak in period 9
+  PASS  cycle 3: no peak in period 5
+  PASS  cycle 3: 10 peaks in 31 periods (3,6,...,30)
+  PASS  cycle 15: peak in period 15
+  PASS  cycle 15: peak in period 30
+  PASS  cycle 15: no peak in period 5 (was a peak under the old quirk)
+  PASS  cycle 15: exactly 2 peaks in 31 periods
+  PASS  cycle 40: no peak inside a 31-period model
+  PASS  cycle 1: every one of the 31 periods peaks
+  PASS  cycle 5 (default): 6 peaks at periods 5,10,...,30
+
+--- computeCfads [R72/R73] -- reference metric, not cash flow ---------
+  PASS  CFADS period 1 = 2,850,000
+  PASS  CFADS at DSCR target = 2,375,000
+  PASS  period 5 CFADS = (3,750,000-750,000-1,150,000) x 1.015^4
+  PASS  DSCR 1.0 makes target = CFADS
+
+--- sizeDebt [R76/R77] -- PV debt sizing ------------------------------
+  PASS  auto-size PV matches the independent computation
+  PASS  auto mode uses the PV
+  PASS  manual mode uses Debt_Nominal
+  PASS  manual mode still reports the PV for display
+  PASS  Debt_Duration 0 gives zero capacity
+  PASS  Debt_Duration 1 = (CFADS_1/1.2)/1.05
+
+--- currentCash [R115] ------------------------------------------------
+  PASS  Toll - OPEX + treasury
+  PASS  treasury brought forward is added
+  PASS  can go negative
+
+--- payHM [R116/R117/R118/R119] -- HM ranks above debt ----------------
+  PASS  ordinary: paid from cash
+  PASS  ordinary: MRA not drawn
+  PASS  ordinary: cash after HM = 2,850,000
+  PASS  ordinary: no signal
+  PASS  shortfall: cash contributes 40,000
+  PASS  shortfall: MRA contributes exactly 60,000
+  PASS  shortfall: cash after HM = 0
+  PASS  shortfall fully covered: no signal
+  PASS  unpaid: MRA gives all it has
+  PASS  unpaid: HM UNPAID signal fires
+  PASS  0.005 short is inside the 0.01 tolerance: no signal
+  PASS  0.02 short is outside the tolerance: signal
+  PASS  negative cash contributes nothing
+  PASS  negative cash: MRA pays the whole bill
+  PASS  negative cash is carried through unchanged
+  PASS  negative cash but MRA covered it: no signal
+  PASS  nothing due: nothing paid
+  PASS  nothing due: no signal
+
+--- principalTarget [R86] -- DSCR sculpting ---------------------------
+  PASS  ordinary: sculpted to the DSCR target
+  PASS  AT the final window period: full residual
+  PASS  one period before the end: still sculpted
+  PASS  past the window: nothing due
+  PASS  interest above target: no principal due
+  PASS  capped by the outstanding balance
+
+--- serviceDebt [R79-R91] -- deferred -> interest -> principal --------
+  PASS  A interest accrued = 150,000
+  PASS  A no DSRA draw needed
+  PASS  A interest paid in full
+  PASS  A principal target = 2,225,000
+  PASS  A principal paid = 2,225,000
+  PASS  A debt EoP = 775,000
+  PASS  A deferred stays empty
+  PASS  A debt service = 2,375,000
+  PASS  B interest accrued = 3,000,000
+  PASS  B DSRA draw = 150,000 (only the gap)
+  PASS  B interest paid in full
+  PASS  B sculpt yields no principal
+  PASS  B nothing amortised
+  PASS  B no deferred created
+  PASS  C deferred paid before interest
+  PASS  C interest gets only what is left
+  PASS  C deferred addition = 2,200,000
+  PASS  C deferred EoP = 2,200,000
+  PASS  C debt principal untouched
+  PASS  C debt service = cash actually paid
+  PASS  D DSRA draw covers the interest
+  PASS  D interest paid from the DSRA
+  PASS  D principal target is the full balance
+  PASS  D principal paid is ZERO: DSRA cannot amortise
+  PASS  D debt untouched
+  PASS  E target is the full residual
+  PASS  E residual repaid
+  PASS  E debt fully extinguished
+  PASS  E service = 40,000 interest + 800,000
+  PASS  F no interest on no debt
+  PASS  F no service
+  PASS  F no draw
+  PASS  G negative cash pays no interest
+  PASS  G negative cash pays no principal
+  PASS  G the whole interest is deferred
+  PASS  G no service recorded
+
+--- dscrRealised [R92] ------------------------------------------------
+  PASS  2,850,000 / 2,375,000 = 1.2
+  PASS  no debt service returns blank, not Infinity
+  PASS  zero CFADS over positive service = 0
+  PASS  negative CFADS gives a negative DSCR
+
+--- debtSignal [R93] --------------------------------------------------
+  PASS  before the window end: silent
+  PASS  AT the window end with residual debt: UNPAID
+  PASS  after the window with residual debt: UNPAID
+  PASS  deferred interest alone triggers UNPAID
+  PASS  residual under the 0.5 guard stays silent
+  PASS  cleanly repaid: silent
+
+--- mraTarget [R95] -- look-ahead at the HM still to COME -------------
+  PASS  ordinary: looks one, two and three years ahead
+  PASS  a huge bill in the CURRENT period does not raise the target
+  PASS  period 2 looks at periods 3, 4 and 5
+  PASS  last period has nothing left to save for
+  PASS  second-to-last sees only the final bill
+  PASS  third-from-last sees two of the three
+  PASS  all coefficients zero disables the MRA
+  PASS  over-funded coefficients raise the target
+  PASS  period 1 target matches the workbook's 268,729.81
+  PASS  the target spikes one period BEFORE the maintenance peak
+
+--- rechargeReserve -- ONE mechanism, used for MRA and DSRA -----------
+  PASS  ordinary: recharged to target
+  PASS  ordinary: nothing released
+  PASS  ordinary: balance at target
+  PASS  cash-limited: only what is available
+  PASS  cash-limited: still short of target
+  PASS  over-target: nothing to recharge
+  PASS  over-target: surplus released
+  PASS  over-target: balance falls back to target
+  PASS  after a full draw: refills from cash
+  PASS  after a full draw: balance is the refill
+  PASS  zero target: no recharge even with cash available
+  PASS  zero target: balance stays empty
+  PASS  zero target: existing balance fully released
+  PASS  zero target: balance emptied
+  PASS  negative cash available: no recharge
+  PASS  negative cash available: balance floored at 0
+  PASS  fully drawn and no target: balance is 0
+
+--- dsraTarget [R103] -- next period's SCHEDULED service --------------
+  PASS  ordinary: interest + next sculpted principal
+  PASS  next period is the window end: full residual scheduled
+  PASS  next period past the window: interest only
+  PASS  no debt: zero target
+  PASS  last period: target is zero (AR103 is hardcoded 0)
+  PASS  period 30 still schedules normally
+
+--- llcr [R123] -------------------------------------------------------
+  PASS  zero rate, 2-period window: (1000+1000)/1000 = 2
+  PASS  10% rate: PV of two 1,000s over 1,000 of debt
+  PASS  treasury brought forward counts toward coverage
+  PASS  period 2: only the last window period remains
+  PASS  past the window: only treasury covers the debt
+  PASS  no debt returns blank
+  PASS  debt exactly at the 0.5 guard returns blank
+  PASS  debt just above the guard returns a number
+
+--- lockupTests [R124-R128] -- all four gates -------------------------
+  PASS  all four gates pass
+  PASS  DSCR below minimum blocks
+  PASS  LLCR below minimum blocks
+  PASS  underfilled MRA blocks
+  PASS  underfilled DSRA blocks
+  PASS  DSCR exactly at the minimum passes
+  PASS  LLCR exactly at the minimum passes
+  PASS  the dust value really is below 1.2 in IEEE754
+  PASS  DSCR two ULPs below the minimum still passes (float dust absorbed)
+  PASS  LLCR two ULPs below the minimum still passes
+  PASS  DSCR short by 1e-6 still BLOCKS (epsilon has not blunted the gate)
+  PASS  LLCR short by 1e-6 still BLOCKS
+  PASS  the knife edge really occurs in the oracle set (2 period(s), first at S13_high_cpi p10)
+  PASS  every knife-edge period is allowed through, not blocked by dust
+  PASS  no debt service: DSCR gate passes on a blank DSCR
+  PASS  no debt: LLCR gate passes on a blank LLCR
+  PASS  MRA 0.4 short is inside the 0.5 tolerance
+  PASS  MRA 0.6 short is outside the tolerance
+  PASS  DSRA 0.4 short is inside the tolerance
+  PASS  zero reserve targets are considered filled
+
+--- distribute [R129/R130/R131] ---------------------------------------
+  PASS  cap leaves the post-distribution buffer
+  PASS  distribution is capped
+  PASS  the buffer is trapped in treasury
+  PASS  locked up: nothing distributed
+  PASS  locked up: all of it carried forward
+  PASS  floor of 1.00 requires no buffer
+  PASS  floor of 1.00 leaves nothing behind
+  PASS  nothing available: nothing distributed
+  PASS  negative cash: nothing distributed
+  PASS  negative cash IS carried forward (no floor in R131)
+  PASS  buffer larger than the cash: cap is 0
+  PASS  buffer larger than the cash: nothing distributed
+  PASS  buffer larger than the cash: all trapped
+
+--- checkFinite -- fail loud, never silent ----------------------------
+  PASS  both anomalies detected
+  PASS  a clean grid reports nothing
+  PASS  NaN located at row 72 period 2
+  PASS  Infinity located at row 91 period 1
+
+--- runPeriod / runAll -- driver integrity ----------------------------
+  PASS  31 periods computed
+  PASS  no NaN or Infinity anywhere in the base case
+  PASS  period 1 opens with no treasury
+  PASS  period 1 opens with an empty MRA
+  PASS  period 1 opens with an empty DSRA
+  PASS  period 1 debt BoP = Principal_Used
+  PASS  period 1 year = Year_Base
+  PASS  period 31 year = Year_Base + 30
+  PASS  all five balances chain correctly across all 31 periods
+  PASS  two runs with the same inputs are identical
+  PASS  the caller's params object is left alone
+  PASS  six waterfall stages are exposed
+
+========================================================================
+ORACLE: 15 scenarios, tolerance 0.01 absolute, text exact
+========================================================================
+
+--- ORACLE S01_base_autosizing ----------------------------------------
+        Base case, auto-sizing (reference).
+        exercises: reference; DSCR pinned 1.20; debt repaid by L68
+  PASS  no NaN/Infinity in the grid
+  PASS  S01_base_autosizing: all 68 rows x 31 periods match
+        worst absolute divergence: 6.333e-8
+
+--- ORACLE S02_manual_small_debt --------------------------------------
+        Manual mode, small 3M debt - everything clears comfortably.
+        exercises: low leverage; distributions early and large
+  PASS  no NaN/Infinity in the grid
+  PASS  S02_manual_small_debt: all 68 rows x 31 periods match
+        worst absolute divergence: 5.588e-9
+
+--- ORACLE S03_manual_40M_unpaid --------------------------------------
+        Manual 40M - debt not extinguished at maturity (UNPAID).
+        exercises: debt NOT extinguished at L68 -> row93 UNPAID
+  PASS  no NaN/Infinity in the grid
+  PASS  S03_manual_40M_unpaid: all 68 rows x 31 periods match
+        worst absolute divergence: 5.215e-8
+
+--- ORACLE S04_manual_60M_deferred ------------------------------------
+        Manual 60M - interest exceeds CFADS, deferred interest builds.
+        exercises: interest>CFADS -> deferred interest builds (row89>0); DSRA draw
+  PASS  no NaN/Infinity in the grid
+  PASS  S04_manual_60M_deferred: all 68 rows x 31 periods match
+        worst absolute divergence: 4.470e-8
+
+--- ORACLE S05_manual_48M_dsra_draw -----------------------------------
+        Manual 48M - DSRA drawn to top up interest in stress years.
+        exercises: DSRA drawn to top up interest in stress years (row83>0)
+  PASS  no NaN/Infinity in the grid
+  PASS  S05_manual_48M_dsra_draw: all 68 rows x 31 periods match
+        worst absolute divergence: 5.215e-8
+
+--- ORACLE S06_hm_peak_mra_draw ---------------------------------------
+        HM peak 3.5M - current cash short in peak years, MRA drawn to pay HM (no UNPAID).
+        exercises: HM peak -> MRA drawn to pay HM (row98>0), no UNPAID
+  PASS  no NaN/Infinity in the grid
+  PASS  S06_hm_peak_mra_draw: all 68 rows x 31 periods match
+        worst absolute divergence: 5.960e-8
+
+--- ORACLE S07_hm_extreme_unpaid --------------------------------------
+        HM peak 12M - even MRA insufficient (HM UNPAID).
+        exercises: HM > cash+MRA -> row119 HM UNPAID
+  PASS  no NaN/Infinity in the grid
+  PASS  S07_hm_extreme_unpaid: all 68 rows x 31 periods match
+        worst absolute divergence: 5.215e-8
+
+--- ORACLE S08_high_dscr_target ---------------------------------------
+        DSCR target 1.5 - tighter sculpting, later distributions.
+        exercises: DSCR target 1.5 -> tighter sculpt, later distributions
+  PASS  no NaN/Infinity in the grid
+  PASS  S08_high_dscr_target: all 68 rows x 31 periods match
+        worst absolute divergence: 4.470e-8
+
+--- ORACLE S09_mra_coefs_zero -----------------------------------------
+        MRA coefficients all 0 - MRA inactive.
+        exercises: MRA target 0 -> MRA inactive throughout
+  PASS  no NaN/Infinity in the grid
+  PASS  S09_mra_coefs_zero: all 68 rows x 31 periods match
+        worst absolute divergence: 6.333e-8
+
+--- ORACLE S10_mra_coefs_high -----------------------------------------
+        MRA coefficients 200/100/50% - MRA over-funded.
+        exercises: MRA over-funded -> larger MRA balances, more lock-up
+  PASS  no NaN/Infinity in the grid
+  PASS  S10_mra_coefs_high: all 68 rows x 31 periods match
+        worst absolute divergence: 7.008e-8
+
+--- ORACLE S11_high_llcr_lockup ---------------------------------------
+        LLCR lock-up threshold 1.35 (above base LLCR) - distributions locked more often.
+        exercises: LLCR test blocks distributions early -> first distrib delayed
+  PASS  no NaN/Infinity in the grid
+  PASS  S11_high_llcr_lockup: all 68 rows x 31 periods match
+        worst absolute divergence: 7.404e-8
+
+--- ORACLE S12_high_dscr_lockup ---------------------------------------
+        DSCR lock-up threshold 1.25 (above base DSCR 1.20) - distributions locked, treasury grows.
+        exercises: DSCR test (1.25>1.20) blocks distributions until debt shrinks
+  PASS  no NaN/Infinity in the grid
+  PASS  S12_high_dscr_lockup: all 68 rows x 31 periods match
+        worst absolute divergence: 6.892e-8
+
+--- ORACLE S13_high_cpi -----------------------------------------------
+        CPI 5% - inflation on revenue/OPEX/HM.
+        exercises: CPI 5% -> nominal revenue/OPEX/HM inflate strongly
+  PASS  no NaN/Infinity in the grid
+  PASS  S13_high_cpi: all 68 rows x 31 periods match
+        worst absolute divergence: 5.215e-8
+
+--- ORACLE S14_short_duration -----------------------------------------
+        Debt duration 10y - amortisation concentrated.
+        exercises: 10y window, 20M -> amortisation concentrated, UNPAID if unserviceable
+  PASS  no NaN/Infinity in the grid
+  PASS  S14_short_duration: all 68 rows x 31 periods match
+        worst absolute divergence: 9.313e-9
+
+--- ORACLE S15_low_tariff ---------------------------------------------
+        Low tariff 0.08 - CFADS strained, DSCR under pressure.
+        exercises: low tariff -> CFADS strained, small deferred/DSRA draw
+  PASS  no NaN/Infinity in the grid
+  PASS  S15_low_tariff: all 68 rows x 31 periods match
+        worst absolute divergence: 6.519e-9
+
+========================================================================
+ORACLE SUMMARY -- 31620 cells compared
+========================================================================
+  PASS  S01_base_autosizing         worst diff 6.333e-8    
+  PASS  S02_manual_small_debt       worst diff 5.588e-9    
+  PASS  S03_manual_40M_unpaid       worst diff 5.215e-8    
+  PASS  S04_manual_60M_deferred     worst diff 4.470e-8    
+  PASS  S05_manual_48M_dsra_draw    worst diff 5.215e-8    
+  PASS  S06_hm_peak_mra_draw        worst diff 5.960e-8    
+  PASS  S07_hm_extreme_unpaid       worst diff 5.215e-8    
+  PASS  S08_high_dscr_target        worst diff 4.470e-8    
+  PASS  S09_mra_coefs_zero          worst diff 6.333e-8    
+  PASS  S10_mra_coefs_high          worst diff 7.008e-8    
+  PASS  S11_high_llcr_lockup        worst diff 7.404e-8    
+  PASS  S12_high_dscr_lockup        worst diff 6.892e-8    
+  PASS  S13_high_cpi                worst diff 5.215e-8    
+  PASS  S14_short_duration          worst diff 9.313e-9    
+  PASS  S15_low_tariff              worst diff 6.519e-9    
+
+  15 / 15 scenarios reproduce the Excel exactly within 0.01
+  worst absolute divergence across every scenario: 7.404e-8
+
+--- cascade_graph.json -- structure -----------------------------------
+  PASS  nodes present
+  PASS  edges present
+  PASS  17 nodes in the adjacency order
+  PASS  adjacency matrix is square
+  PASS  every matrix row has the right width
+
+--- cascade_graph.json -- node rows exist in the engine grid ----------
+  PASS  every row claimed by a node is produced by the engine
+
+--- cascade_graph.json -- edges ---------------------------------------
+  PASS  every edge type is one the renderer will handle
+  PASS  every edge references a declared node
+  PASS  two draw pipes (MRA->HM, DSRA->debt)
+  PASS  two release pipes (MRA and DSRA surplus to equity)
+  PASS  fund pipes exist
+  PASS  priority pipes inside the debt node exist
+
+--- cascade_graph.json -- DEBT compound node --------------------------
+  PASS  DEBT exists and is compound
+  PASS  deferred interest sub-compartment exists
+  PASS  interest sub-compartment exists
+  PASS  principal sub-compartment exists
+  PASS  priority runs deferred -> interest
+  PASS  priority runs interest -> principal
+  PASS  no edge short-circuits deferred straight to principal
+
+--- cascade_graph.json -- reservoirs hold a level between periods -----
+  PASS  MRA, DSRA and both treasury nodes are reservoirs
+  PASS  the MRA holds a level in the base case
+  PASS  the DSRA holds a level in the base case
+  PASS  treasury holds a level in the base case
+
+--- cascade_graph.json -- acyclic once reservoirs are role-split ------
+  PASS  raw graph: MRA -> HM_PAY edge exists (the read role)
+  PASS  raw graph: MRA_RECH -> MRA edge exists (the write role)
+  PASS  raw graph: DSRA -> DEBT edge exists (the read role)
+  PASS  raw graph: DSRA_RECH -> DSRA edge exists (the write role)
+  PASS  raw graph therefore has cycles, as expected
+  PASS  role-split intra-period graph IS a DAG (every node ordered)
+  PASS  the only inter-period back-edge is the treasury carry
+  PASS  the engine carries exactly 5 balances between periods
+
+--- cascade_graph.json -- evaluation order matches the engine ---------
+  PASS  the graph declares 13 evaluation steps
+  PASS  the engine exposes the brief's 6 step-through stages
+  PASS  graph evaluates HM payment before debt service
+  PASS  graph evaluates debt service before reserve recharges
+  PASS  graph recharges the MRA before the DSRA
+  PASS  graph applies lock-up before distribution
+  PASS  engine stage order is carry,hm,debt,resid,reserve,distrib
+
+--- cascade_graph.json -- parameter references ------------------------
+  PASS  every parameter named by a node is a real engine parameter
+  PASS  every node has glossary seed text
+  PASS  every edge has a flow label for its click-through
+
+========================================================================
+BRANCH COVERAGE (probed from engine output, not hand-maintained)
+========================================================================
+  HIT  sizeDebt/auto                      x9    S01,S06,S07,+6
+  HIT  sizeDebt/manual                    x6    S02,S03,S04,+3
+  HIT  computeHm/peak                     x15   S01,S02,S03,+12
+  HIT  computeHm/flat                     x15   S01,S02,S03,+12
+  HIT  payHM/fromCashOnly                 x15   S01,S02,S03,+12
+  HIT  payHM/mraDraw                      x2    S06,S07
+  HIT  payHM/signal                       x1    S07
+  HIT  principalTarget/sculpt             x15   S01,S02,S03,+12
+  HIT  principalTarget/atEnd              x11   S01,S03,S04,+8
+  HIT  principalTarget/past               x15   S01,S02,S03,+12
+  HIT  principalTarget/zero               x8    S02,S03,S04,+5
+  HIT  principalTarget/capped             x4    S02,S06,S07,+1
+  HIT  serviceDebt/dsraDraw               x4    S04,S05,S06,+1
+  HIT  serviceDebt/deferredPaid           x3    S04,S06,S15
+  HIT  serviceDebt/deferredBuilds         x3    S04,S06,S15
+  HIT  serviceDebt/interestShort          x3    S04,S06,S15
+  HIT  serviceDebt/principalStarved       x1    S04
+  HIT  serviceDebt/fullyRepaid            x11   S01,S02,S06,+8
+  HIT  dscrRealised/blank                 x11   S01,S02,S06,+8
+  HIT  dscrRealised/number                x15   S01,S02,S03,+12
+  HIT  debtSignal/unpaid                  x4    S03,S04,S05,+1
+  HIT  debtSignal/clean                   x15   S01,S02,S03,+12
+  HIT  mraTarget/zero                     x15   S01,S02,S03,+12
+  HIT  mraTarget/positive                 x14   S01,S02,S03,+11
+  HIT  reserve/mraRecharge                x14   S01,S02,S03,+11
+  HIT  reserve/mraRelease                 x13   S01,S02,S03,+10
+  HIT  reserve/mraDrawn                   x2    S06,S07
+  HIT  reserve/dsraRecharge               x15   S01,S02,S03,+12
+  HIT  reserve/dsraRelease                x15   S01,S02,S03,+12
+  HIT  reserve/dsraDrawn                  x4    S04,S05,S06,+1
+  HIT  dsraTarget/zero                    x15   S01,S02,S03,+12
+  HIT  dsraTarget/positive                x15   S01,S02,S03,+12
+  HIT  llcr/blank                         x11   S01,S02,S06,+8
+  HIT  llcr/number                        x15   S01,S02,S03,+12
+  HIT  lockup/pass                        x13   S01,S02,S03,+10
+  HIT  lockup/dscrBlocks                  x8    S03,S04,S05,+5
+  HIT  lockup/llcrBlocks                  x5    S03,S04,S05,+2
+  HIT  lockup/mraBlocks                   x12   S01,S03,S04,+9
+  HIT  lockup/dsraBlocks                  x15   S01,S02,S03,+12
+  HIT  distribute/paid                    x13   S01,S02,S03,+10
+  HIT  distribute/lockedOut               x15   S01,S02,S03,+12
+  HIT  distribute/capBinds                x11   S01,S02,S03,+8
+  HIT  distribute/trapped                 x15   S01,S02,S03,+12
+
+  ---  payHM/negCash                      NOT covered by any oracle scenario
+  ---  distribute/negTreasury             NOT covered by any oracle scenario
+
+  43 / 45 branches exercised by the 15 oracle scenarios
+
+========================================================================
+TOTAL: 308 passed, 0 failed, 308 total
+========================================================================
+
+========================================================================
+VERDICT
+========================================================================
+  assertions      : 308 passed / 0 failed
+  oracle scenarios: 15 / 15 reproduced (31620 cells compared)
+  worst divergence: 7.404e-8 (tolerance 0.01)
+  branch coverage : 43 / 45
+
+RESULT: GREEN
